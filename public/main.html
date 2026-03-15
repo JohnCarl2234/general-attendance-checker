@@ -443,6 +443,8 @@ x<!DOCTYPE html>
         };
 
         const buildCloudPayload = () => {
+            pruneStateToKnownStudents();
+
             const categories = {};
             students.forEach(student => {
                 categories[student.id] = student.category;
@@ -493,6 +495,8 @@ x<!DOCTYPE html>
                         : student.category
                 }));
             }
+
+            pruneStateToKnownStudents();
         };
 
         const setCloudActionMsg = (message) => {
@@ -881,6 +885,16 @@ x<!DOCTYPE html>
             saveContributionDebounced(id);
         };
 
+        const pruneStateToKnownStudents = () => {
+            const idSet = new Set(students.map(s => Number(s.id)));
+            attendanceData = Object.fromEntries(
+                Object.entries(attendanceData).filter(([id, val]) => idSet.has(Number(id)))
+            );
+            contributionNotes = Object.fromEntries(
+                Object.entries(contributionNotes).filter(([id]) => idSet.has(Number(id)))
+            );
+        };
+
         const nextStudentId = () =>
             students.length > 0 ? Math.max(...students.map(s => s.id)) + 1 : 1;
 
@@ -1041,6 +1055,8 @@ x<!DOCTYPE html>
         };
 
         window.renderTable = () => {
+            pruneStateToKnownStudents();
+
             const filtered = getFilteredStudents();
             const tbody = document.getElementById('tableBody');
             
@@ -1093,10 +1109,12 @@ x<!DOCTYPE html>
             }).join('');
 
             // Update stats
-            const present = Object.values(attendanceData).filter(v => v === true).length;
+            const total = students.length;
+            const present = students.filter(s => !!attendanceData[s.id]).length;
+            const rate = total ? `${((present / total) * 100).toFixed(1)}%` : '0%';
             document.getElementById('presentCount').innerText = present;
-            document.getElementById('totalCount').innerText = students.length;
-            document.getElementById('rateCount').innerText = ((present / students.length) * 100).toFixed(1) + '%';
+            document.getElementById('totalCount').innerText = total;
+            document.getElementById('rateCount').innerText = rate;
         };
 
         init();
