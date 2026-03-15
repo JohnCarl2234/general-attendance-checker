@@ -114,7 +114,7 @@
         <section class="oneui-hero mb-6">
             <div class="oneui-hero-grid">
                 <div>
-                    <div class="oneui-chip mb-3">
+                    <div class="oneui-chip mb-3" style="background: rgba(255,255,255,0.14); border: 1px solid rgba(255,255,255,0.18);">
                         <span class="material-symbols-rounded">cloud_sync</span>
                         <span id="statusMsg">Connecting to database...</span>
                     </div>
@@ -125,7 +125,7 @@
                             <span class="material-symbols-rounded">schedule</span>
                             <span id="dateTimeDisplay">--</span>
                         </span>
-                        <button id="exportBtn" onclick="exportPdf()" class="filled-button px-4 py-2 text-sm font-bold">
+                        <button id="exportBtn" onclick="exportPdf()" class="filled-button px-4 py-2 text-sm font-bold" style="box-shadow:none;">
                             <span class="material-symbols-rounded text-base">picture_as_pdf</span>
                             PDF Export
                         </button>
@@ -135,7 +135,7 @@
                         </button>
                     </div>
                 </div>
-                <div class="surface-card p-4 rounded-2xl shadow-sm">
+                <div class="surface-card p-4 rounded-2xl shadow-sm" style="background:#ffffff;">
                     <p class="section-label mb-2">Quick Sync</p>
                     <div class="flex items-center gap-3 mb-3">
                         <span class="material-symbols-rounded text-3xl text-blue-600">sync</span>
@@ -150,17 +150,17 @@
         </section>
 
         <div id="stats" class="oneui-metrics mb-6">
-            <div class="metric-card p-4">
+            <div class="metric-card p-4" style="background:#fff;">
                 <div class="metric-icon"><span class="material-symbols-rounded">how_to_reg</span></div>
                 <p class="metric-label">Present</p>
                 <p id="presentCount" class="metric-value text-emerald-700">0</p>
             </div>
-            <div class="metric-card p-4">
+            <div class="metric-card p-4" style="background:#fff;">
                 <div class="metric-icon"><span class="material-symbols-rounded">group</span></div>
                 <p class="metric-label">Total</p>
                 <p id="totalCount" class="metric-value">72</p>
             </div>
-            <div class="metric-card p-4">
+            <div class="metric-card p-4" style="background:#fff;">
                 <div class="metric-icon"><span class="material-symbols-rounded">stacked_line_chart</span></div>
                 <p class="metric-label">Rate</p>
                 <p id="rateCount" class="metric-value text-blue-700">0%</p>
@@ -168,7 +168,7 @@
         </div>
 
         <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6">
-            <div id="cloudControls" class="control-surface p-4">
+            <div id="cloudControls" class="control-surface p-4" style="background:#fff;">
                 <div class="flex items-start gap-3 mb-3">
                     <span class="material-symbols-rounded text-blue-600">backup</span>
                     <div>
@@ -194,7 +194,7 @@
                 <p id="cloudActionMsg" class="content-note text-xs text-slate-500 mt-2"></p>
             </div>
 
-            <div class="control-surface p-4">
+            <div class="control-surface p-4" style="background:#fff;">
                 <div class="flex items-start gap-3 mb-3">
                     <span class="material-symbols-rounded text-blue-600">search</span>
                     <div>
@@ -213,7 +213,7 @@
             </div>
         </div>
 
-        <div id="bulkActions" class="control-surface p-4 mb-6">
+        <div id="bulkActions" class="control-surface p-4 mb-6" style="background:#fff;">
             <div class="flex items-start gap-3 mb-3">
                 <span class="material-symbols-rounded text-blue-600">rule</span>
                 <div>
@@ -235,7 +235,7 @@
             </div>
         </div>
 
-        <div id="memberManagement" class="control-surface p-4 mb-6">
+        <div id="memberManagement" class="control-surface p-4 mb-6" style="background:#fff;">
             <div class="flex items-start gap-3 mb-3">
                 <span class="material-symbols-rounded text-blue-600">group_add</span>
                 <div>
