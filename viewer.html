@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NSTP Viewer Dashboard</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-slate-50 min-h-screen font-sans pb-20">
+    <nav class="bg-slate-900 text-white shadow-xl sticky top-0 z-50 p-4">
+        <div class="max-w-7xl mx-auto flex justify-between items-center">
+            <div>
+                <h1 class="text-xl font-bold">NSTP VIEWER DASHBOARD</h1>
+                <p id="statusMsg" class="text-xs text-yellow-300 font-bold">Connecting to cloud...</p>
+            </div>
+            <div class="flex gap-2">
+                <a href="./main.html" class="bg-slate-700 text-white px-4 py-1 rounded font-bold text-sm">Admin</a>
+            </div>
+        </div>
+    </nav>
+
+    <main class="max-w-7xl mx-auto px-4 py-6">
+        <div class="bg-white rounded-xl shadow-sm border p-4 mb-6">
+            <p class="text-xs text-gray-500 font-bold uppercase mb-2">Record Viewer</p>
+            <div class="flex flex-col md:flex-row md:items-center gap-3">
+                <select id="recordSelect" class="px-3 py-2 rounded-lg border bg-white text-sm font-medium md:min-w-72"></select>
+                <button id="loadRecordBtn" class="px-4 py-2 rounded-lg bg-slate-700 text-white text-sm font-bold">Load Record</button>
+                <button id="returnLiveBtn" class="px-4 py-2 rounded-lg bg-emerald-700 text-white text-sm font-bold">Return Live</button>
+            </div>
+            <p id="cloudActionMsg" class="text-xs text-slate-500 mt-2"></p>
+        </div>
+
+        <div id="stats" class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6 text-center">
+            <div class="bg-white p-4 rounded-xl shadow-sm border">
+                <p class="text-xs text-gray-500 font-bold uppercase">Present</p>
+                <p id="presentCount" class="text-2xl font-black text-green-600">0</p>
+            </div>
+            <div class="bg-white p-4 rounded-xl shadow-sm border">
+                <p class="text-xs text-gray-500 font-bold uppercase">Total</p>
+                <p id="totalCount" class="text-2xl font-black">0</p>
+            </div>
+            <div class="bg-white p-4 rounded-xl shadow-sm border">
+                <p class="text-xs text-gray-500 font-bold uppercase">Rate</p>
+                <p id="rateCount" class="text-2xl font-black text-blue-600">0%</p>
+            </div>
+            <div class="bg-white p-4 rounded-xl shadow-sm border">
+                <p class="text-xs text-gray-500 font-bold uppercase">Updated</p>
+                <p id="updatedAt" class="text-xs font-bold text-slate-600">--</p>
+            </div>
+        </div>
+
+        <input type="text" id="searchBox" placeholder="Search student..." class="w-full p-4 mb-6 rounded-xl border shadow-sm outline-none focus:ring-2 focus:ring-slate-500">
+
+        <div class="bg-white rounded-xl shadow-sm overflow-hidden border">
+            <table class="w-full text-left border-collapse">
+                <thead class="bg-gray-50">
+                    <tr>
+                        <th class="px-6 py-3 text-xs font-bold text-gray-400 uppercase">Name</th>
+                        <th class="px-6 py-3 text-xs font-bold text-gray-400 uppercase text-center">Assignment</th>
+                        <th class="px-6 py-3 text-xs font-bold text-gray-400 uppercase text-center">Status</th>
+                        <th class="px-6 py-3 text-xs font-bold text-gray-400 uppercase">Contribution</th>
+                    </tr>
+                </thead>
+                <tbody id="tableBody" class="divide-y"></tbody>
+            </table>
+        </div>
+    </main>
+
+    <script src="./firebase-config.js"></script>
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getFirestore, doc, getDoc, onSnapshot, getDocs, collection, query, orderBy, limit } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        const injectedFirebaseConfig = typeof window !== 'undefined' ? window.FIREBASE_CONFIG : undefined;
+        const appId = typeof window !== 'undefined' && window.APP_ID ? window.APP_ID : 'evsu-nstp-attendance';
+
+        const firebaseConfig = (() => {
+            if (!injectedFirebaseConfig) return null;
+            try {
+                return typeof injectedFirebaseConfig === 'string' ? JSON.parse(injectedFirebaseConfig) : injectedFirebaseConfig;
+            } catch (err) {
+                console.error('Invalid Firebase config format:', err);
+                return null;
+            }
+        })();
+
+        const SHARED_DOC_KEYS = { state: 'daily_state' };
+
+        let students = [];
+        let attendanceData = {};
+        let contributionNotes = {};
+        let categoryMap = {};
+        let isViewingRecord = false;
+
+        const setStatus = (msg, isError = false) => {
+            const el = document.getElementById('statusMsg');
+            el.innerText = msg;
+            el.classList.remove('text-yellow-300', 'text-green-300', 'text-red-400');
+            el.classList.add(isError ? 'text-red-400' : 'text-green-300');
+        };
+
+        const setActionMsg = (msg) => {
+            document.getElementById('cloudActionMsg').innerText = msg;
+        };
+
+        const normalizeContributionEntry = (entry) => {
+            if (typeof entry === 'string') return { status: '', details: entry };
+            if (!entry || typeof entry !== 'object') return { status: '', details: '' };
+            return {
+                status: typeof entry.status === 'string' ? entry.status : '',
+                details: typeof entry.details === 'string' ? entry.details : ''
+            };
+        };
+
+        const getStateRef = (db) => doc(db, 'artifacts', appId, 'public_data', SHARED_DOC_KEYS.state);
+        const getRecordDocRef = (db, recordId) => doc(db, 'artifacts', appId, 'attendance_records', recordId);
+        const getRecordsCollectionRef = (db) => collection(db, 'artifacts', appId, 'attendance_records');
+
+        const loadStudents = async () => {
+            const response = await fetch(`names.txt?t=${Date.now()}`);
+            const text = await response.text();
+            const names = text.split('\n').map(line => line.trim()).filter(Boolean);
+            students = names.map((line, index) => {
+                const [rawName, rawCategory] = line.split('|');
+                return {
+                    id: index + 1,
+                    name: (rawName || '').trim(),
+                    category: (rawCategory || 'Team Members').trim() || 'Team Members'
+                };
+            });
+        };
+
+        const applyPayload = (payload) => {
+            if (!payload || typeof payload !== 'object') return;
+            attendanceData = payload.attendanceData || {};
+            contributionNotes = payload.contributionNotes || {};
+            categoryMap = payload.categories || {};
+
+            students = students.map(student => ({
+                ...student,
+                category: categoryMap[student.id] || student.category
+            }));
+
+            document.getElementById('updatedAt').innerText = payload.updatedAtIso || '--';
+        };
+
+        const renderTable = () => {
+            const queryText = document.getElementById('searchBox').value.toLowerCase();
+            const filtered = students.filter(s => s.name.toLowerCase().includes(queryText));
+            const tbody = document.getElementById('tableBody');
+
+            tbody.innerHTML = filtered.map(s => {
+                const present = !!attendanceData[s.id];
+                const note = normalizeContributionEntry(contributionNotes[s.id]);
+                const noteText = [note.status, note.details].filter(Boolean).join(' - ') || '-';
+
+                return `
+                    <tr>
+                        <td class="px-6 py-4 font-medium">${s.name}</td>
+                        <td class="px-6 py-4 text-center">${s.category}</td>
+                        <td class="px-6 py-4 text-center">
+                            <span class="px-4 py-1 rounded-full text-xs font-bold ${present ? 'bg-green-100 text-green-700 border border-green-400' : 'bg-slate-100 text-slate-500 border border-slate-300'}">${present ? 'Present' : 'Absent'}</span>
+                        </td>
+                        <td class="px-6 py-4 text-sm text-slate-700">${noteText}</td>
+                    </tr>
+                `;
+            }).join('');
+
+            const presentCount = Object.values(attendanceData).filter(v => v === true).length;
+            document.getElementById('presentCount').innerText = presentCount;
+            document.getElementById('totalCount').innerText = students.length;
+            document.getElementById('rateCount').innerText = students.length ? ((presentCount / students.length) * 100).toFixed(1) + '%' : '0%';
+        };
+
+        const refreshRecordOptions = async (db) => {
+            const select = document.getElementById('recordSelect');
+            const q = query(getRecordsCollectionRef(db), orderBy('savedAtMs', 'desc'), limit(100));
+            const snap = await getDocs(q);
+            const options = ['<option value="">Select saved record...</option>'];
+            snap.forEach((recordDoc) => {
+                const data = recordDoc.data() || {};
+                options.push(`<option value="${recordDoc.id}">${data.savedAtLabel || recordDoc.id}</option>`);
+            });
+            select.innerHTML = options.join('');
+        };
+
+        const init = async () => {
+            await loadStudents();
+            document.getElementById('searchBox').addEventListener('input', renderTable);
+
+            if (!firebaseConfig) {
+                setStatus('Cloud unavailable: missing firebase-config.js values', true);
+                renderTable();
+                return;
+            }
+
+            const app = initializeApp(firebaseConfig);
+            const db = getFirestore(app);
+
+            await refreshRecordOptions(db);
+
+            document.getElementById('loadRecordBtn').addEventListener('click', async () => {
+                const recordId = document.getElementById('recordSelect').value;
+                if (!recordId) {
+                    setActionMsg('Please choose a record first');
+                    return;
+                }
+
+                const snap = await getDoc(getRecordDocRef(db, recordId));
+                if (!snap.exists()) {
+                    setActionMsg('Record not found');
+                    return;
+                }
+
+                isViewingRecord = true;
+                applyPayload(snap.data());
+                renderTable();
+                setActionMsg(`Viewing record: ${snap.data().savedAtLabel || recordId}`);
+                setStatus('Viewing historical record');
+            });
+
+            document.getElementById('returnLiveBtn').addEventListener('click', async () => {
+                isViewingRecord = false;
+                const snap = await getDoc(getStateRef(db));
+                if (snap.exists()) {
+                    applyPayload(snap.data());
+                    renderTable();
+                }
+                setActionMsg('Returned to live mode');
+                setStatus('Cloud Sync Active');
+            });
+
+            onSnapshot(getStateRef(db), (snap) => {
+                if (!snap.exists() || isViewingRecord) return;
+                applyPayload(snap.data());
+                renderTable();
+                setStatus('Cloud Sync Active');
+            }, (err) => {
+                console.error(err);
+                setStatus(`Cloud read failed: ${err.code || 'unknown-error'}`, true);
+            });
+        };
+
+        init();
+    </script>
+</body>
+</html>

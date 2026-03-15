@@ -22,7 +22,9 @@
             #searchBox,
             #categoryFilters,
             #bulkActions,
+            #cloudControls,
             #exportBtn,
+            #viewerBtn,
             #stats,
             #interactiveTableWrapper {
                 display: none !important;
@@ -71,7 +73,10 @@
             </div>
             <div class="text-right">
                 <p id="dateTimeDisplay" class="text-xs text-red-100 mb-1">--</p>
-                <button id="exportBtn" onclick="exportPdf()" class="bg-white text-red-900 px-4 py-1 rounded font-bold text-sm">PDF Export</button>
+                <div class="flex gap-2 justify-end">
+                    <a id="viewerBtn" href="./viewer.html" class="bg-red-800 text-white px-4 py-1 rounded font-bold text-sm border border-red-700">Viewer</a>
+                    <button id="exportBtn" onclick="exportPdf()" class="bg-white text-red-900 px-4 py-1 rounded font-bold text-sm">PDF Export</button>
+                </div>
             </div>
         </div>
     </nav>
@@ -121,6 +126,18 @@
         </div>
 
         <!-- Search -->
+        <div id="cloudControls" class="bg-white rounded-xl shadow-sm border p-4 mb-6">
+            <p class="text-xs text-gray-500 font-bold uppercase mb-2">Cloud Persistence</p>
+            <div class="flex flex-col md:flex-row md:items-center gap-3">
+                <button onclick="saveAllToCloud()" class="px-4 py-2 rounded-lg bg-blue-700 text-white text-sm font-bold">Save All To Cloud</button>
+                <button onclick="saveAsRecord()" class="px-4 py-2 rounded-lg bg-indigo-700 text-white text-sm font-bold">Save Record</button>
+                <select id="recordSelect" class="px-3 py-2 rounded-lg border bg-white text-sm font-medium md:min-w-72"></select>
+                <button onclick="loadSelectedRecord()" class="px-4 py-2 rounded-lg bg-slate-700 text-white text-sm font-bold">Load Record</button>
+                <button onclick="returnToLiveMode()" class="px-4 py-2 rounded-lg bg-emerald-700 text-white text-sm font-bold">Return Live</button>
+            </div>
+            <p id="cloudActionMsg" class="text-xs text-slate-500 mt-2"></p>
+        </div>
+
         <input type="text" id="searchBox" oninput="renderTable()" placeholder="Search student..." class="w-full p-4 mb-6 rounded-xl border shadow-sm outline-none focus:ring-2 focus:ring-red-500">
 
         <!-- Assignment Filters -->
@@ -166,7 +183,7 @@
     <!-- Firebase SDKs -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getFirestore, doc, setDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { getFirestore, doc, setDoc, onSnapshot, getDoc, getDocs, collection, query, orderBy, limit } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
         import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
 
         // Global Variables
@@ -193,9 +210,7 @@
                 : (typeof window !== 'undefined' && window.APP_ID ? window.APP_ID : 'evsu-nstp-attendance');
         const hasFirebaseConfig = !!firebaseConfig;
         const SHARED_DOC_KEYS = {
-            attendance: 'daily_attendance',
-            contributions: 'daily_contributions',
-            categories: 'daily_categories'
+            state: 'daily_state'
         };
 
         // Initialize Firebase only when config is available
@@ -219,8 +234,10 @@
         let attendanceData = {}; // Stores { studentId: true/false }
         let contributionNotes = {}; // Stores { studentId: { status: string, details: string } }
         const noteSaveTimers = {};
+        let cloudSaveTimer = null;
         let activeCategory = "All";
         let bulkCategory = "All";
+        let isViewingRecord = false;
         const CATEGORY_OPTIONS = ["Core Group", "Asessment", "Team Members", "Proposal Drafters"];
         const CONTRIBUTION_PRESETS = ["", "Contributed", "Not Contributed", "Needs Follow-up"];
         const LOCAL_STORAGE_KEYS = {
@@ -374,51 +391,214 @@
             return doc(db, 'artifacts', appId, 'public_data', docKey);
         };
 
-        const startCloudSync = () => {
-            const attendanceRef = getSharedDocRef(SHARED_DOC_KEYS.attendance);
-            const noteRef = getSharedDocRef(SHARED_DOC_KEYS.contributions);
-            const categoryRef = getSharedDocRef(SHARED_DOC_KEYS.categories);
+        const getRecordDocRef = (recordId) => {
+            return doc(db, 'artifacts', appId, 'attendance_records', recordId);
+        };
 
-            onSnapshot(attendanceRef, (docSnap) => {
-                if (docSnap.exists()) {
-                    attendanceData = docSnap.data();
+        const getRecordsCollectionRef = () => {
+            return collection(db, 'artifacts', appId, 'attendance_records');
+        };
+
+        const buildCloudPayload = () => {
+            const categories = {};
+            students.forEach(student => {
+                categories[student.id] = student.category;
+            });
+
+            return {
+                attendanceData,
+                contributionNotes,
+                categories,
+                studentCount: students.length,
+                updatedAtIso: new Date().toISOString()
+            };
+        };
+
+        const applyCloudPayload = (payload) => {
+            if (!payload || typeof payload !== 'object') return;
+
+            if (payload.attendanceData && typeof payload.attendanceData === 'object') {
+                attendanceData = payload.attendanceData;
+            }
+
+            if (payload.contributionNotes && typeof payload.contributionNotes === 'object') {
+                contributionNotes = payload.contributionNotes;
+            }
+
+            if (payload.categories && typeof payload.categories === 'object') {
+                students = students.map(student => ({
+                    ...student,
+                    category: payload.categories[student.id]
+                        ? normalizeCategory(payload.categories[student.id])
+                        : student.category
+                }));
+            }
+        };
+
+        const setCloudActionMsg = (message) => {
+            const el = document.getElementById('cloudActionMsg');
+            if (el) el.innerText = message;
+        };
+
+        const saveCompleteStateToCloud = async (source = 'manual') => {
+            if (!hasFirebaseConfig) {
+                setCloudActionMsg('Cloud save skipped: no Firebase config');
+                return;
+            }
+
+            if (isViewingRecord && source !== 'manual') {
+                return;
+            }
+
+            try {
+                const stateRef = getSharedDocRef(SHARED_DOC_KEYS.state);
+                await setDoc(stateRef, buildCloudPayload(), { merge: true });
+                if (source === 'manual') {
+                    setCloudActionMsg(`Saved to cloud at ${nowStamp()}`);
+                }
+            } catch (err) {
+                console.error('Cloud state save failed:', err);
+                setSyncMessage(`Cloud save failed: ${err.code || 'unknown-error'}`, 'error');
+                setCloudActionMsg(`Cloud save failed: ${err.code || 'unknown-error'}`);
+            }
+        };
+
+        const scheduleCloudStateSave = () => {
+            if (!hasFirebaseConfig || isViewingRecord) return;
+
+            if (cloudSaveTimer) {
+                clearTimeout(cloudSaveTimer);
+            }
+
+            cloudSaveTimer = setTimeout(() => {
+                saveCompleteStateToCloud('auto');
+            }, 350);
+        };
+
+        const refreshRecordOptions = async () => {
+            if (!hasFirebaseConfig) return;
+            const select = document.getElementById('recordSelect');
+            if (!select) return;
+
+            try {
+                const q = query(getRecordsCollectionRef(), orderBy('savedAtMs', 'desc'), limit(100));
+                const snap = await getDocs(q);
+                const options = ['<option value="">Select saved record...</option>'];
+
+                snap.forEach((recordDoc) => {
+                    const data = recordDoc.data() || {};
+                    const label = data.savedAtLabel || recordDoc.id;
+                    options.push(`<option value="${recordDoc.id}">${escapeHtml(label)}</option>`);
+                });
+
+                select.innerHTML = options.join('');
+            } catch (err) {
+                console.error('Failed loading record list:', err);
+                setCloudActionMsg(`Record list failed: ${err.code || 'unknown-error'}`);
+            }
+        };
+
+        window.saveAllToCloud = async () => {
+            await saveCompleteStateToCloud('manual');
+            await refreshRecordOptions();
+        };
+
+        window.saveAsRecord = async () => {
+            if (!hasFirebaseConfig) {
+                setCloudActionMsg('Cloud record save skipped: no Firebase config');
+                return;
+            }
+
+            try {
+                await saveCompleteStateToCloud('auto');
+
+                const savedAtMs = Date.now();
+                const recordId = String(savedAtMs);
+                const recordRef = getRecordDocRef(recordId);
+                const payload = {
+                    ...buildCloudPayload(),
+                    savedAtMs,
+                    savedAtLabel: nowStamp()
+                };
+
+                await setDoc(recordRef, payload, { merge: true });
+                setCloudActionMsg(`Record saved at ${payload.savedAtLabel}`);
+                await refreshRecordOptions();
+            } catch (err) {
+                console.error('Record save failed:', err);
+                setCloudActionMsg(`Record save failed: ${err.code || 'unknown-error'}`);
+            }
+        };
+
+        window.loadSelectedRecord = async () => {
+            if (!hasFirebaseConfig) {
+                setCloudActionMsg('Record load skipped: no Firebase config');
+                return;
+            }
+
+            const select = document.getElementById('recordSelect');
+            const recordId = select ? select.value : '';
+            if (!recordId) {
+                setCloudActionMsg('Please select a saved record first');
+                return;
+            }
+
+            try {
+                const recordRef = getRecordDocRef(recordId);
+                const snap = await getDoc(recordRef);
+                if (!snap.exists()) {
+                    setCloudActionMsg('Selected record does not exist');
+                    return;
+                }
+
+                isViewingRecord = true;
+                applyCloudPayload(snap.data());
+                renderTable();
+                setCloudActionMsg(`Viewing record: ${snap.data().savedAtLabel || recordId}`);
+                setSyncMessage('Viewing historical record', 'warning');
+            } catch (err) {
+                console.error('Record load failed:', err);
+                setCloudActionMsg(`Record load failed: ${err.code || 'unknown-error'}`);
+            }
+        };
+
+        window.returnToLiveMode = async () => {
+            if (!hasFirebaseConfig) {
+                isViewingRecord = false;
+                setCloudActionMsg('Live mode (local)');
+                return;
+            }
+
+            try {
+                const stateRef = getSharedDocRef(SHARED_DOC_KEYS.state);
+                const snap = await getDoc(stateRef);
+                if (snap.exists()) {
+                    applyCloudPayload(snap.data());
+                }
+
+                isViewingRecord = false;
+                renderTable();
+                setCloudActionMsg('Returned to live cloud state');
+                setSyncMessage('Cloud Sync Active', 'online');
+            } catch (err) {
+                console.error('Return to live mode failed:', err);
+                setCloudActionMsg(`Return failed: ${err.code || 'unknown-error'}`);
+            }
+        };
+
+        const startCloudSync = () => {
+            const stateRef = getSharedDocRef(SHARED_DOC_KEYS.state);
+
+            onSnapshot(stateRef, (docSnap) => {
+                if (docSnap.exists() && !isViewingRecord) {
+                    applyCloudPayload(docSnap.data());
                 }
                 saveLocalState();
                 renderTable();
                 setSyncMessage('Cloud Sync Active', 'online');
             }, (error) => {
-                console.error('Snapshot error:', error);
+                console.error('Cloud state snapshot error:', error);
                 setSyncMessage(`Cloud read failed: ${error.code || 'unknown-error'}`, 'error');
-            });
-
-            onSnapshot(noteRef, (docSnap) => {
-                if (docSnap.exists()) {
-                    contributionNotes = docSnap.data();
-                }
-                saveLocalState();
-                renderTable();
-            }, (error) => {
-                console.error('Contribution snapshot error:', error);
-                setSyncMessage(`Cloud note sync failed: ${error.code || 'unknown-error'}`, 'error');
-            });
-
-            onSnapshot(categoryRef, (docSnap) => {
-                if (docSnap.exists()) {
-                    const cloudCategories = docSnap.data();
-                    students = students.map(student => {
-                        const cloudCategory = cloudCategories[student.id];
-                        return {
-                            ...student,
-                            category: cloudCategory ? normalizeCategory(cloudCategory) : student.category
-                        };
-                    });
-                }
-
-                saveLocalState();
-                renderTable();
-            }, (error) => {
-                console.error('Category snapshot error:', error);
-                setSyncMessage(`Cloud category sync failed: ${error.code || 'unknown-error'}`, 'error');
             });
         };
 
@@ -519,14 +699,7 @@
             document.getElementById('bulkActionMsg').innerText = `${targets.length} student(s) marked ${isPresent ? 'Present' : 'Absent'}`;
 
             if (!hasFirebaseConfig) return;
-
-            try {
-                const docRef = getSharedDocRef(SHARED_DOC_KEYS.attendance);
-                await setDoc(docRef, payload, { merge: true });
-            } catch (err) {
-                console.error('Bulk attendance update failed:', err);
-                setSyncMessage(`Bulk write failed: ${err.code || 'unknown-error'}`, 'error');
-            }
+            await saveCompleteStateToCloud('auto');
         };
 
         window.setStudentCategory = async (id, category) => {
@@ -537,14 +710,7 @@
             renderTable();
 
             if (!hasFirebaseConfig) return;
-
-            try {
-                const categoryRef = getSharedDocRef(SHARED_DOC_KEYS.categories);
-                await setDoc(categoryRef, { [id]: student.category }, { merge: true });
-            } catch (err) {
-                console.error('Failed to save category update:', err);
-                setSyncMessage(`Category save failed: ${err.code || 'unknown-error'}`, 'error');
-            }
+            scheduleCloudStateSave();
         };
 
         const normalizeContributionEntry = (entry) => {
@@ -563,20 +729,14 @@
         };
 
         const saveContributionDebounced = (id) => {
-            if (!hasFirebaseConfig) return;
-
             if (noteSaveTimers[id]) {
                 clearTimeout(noteSaveTimers[id]);
             }
 
-            noteSaveTimers[id] = setTimeout(async () => {
-                try {
-                    const noteRef = getSharedDocRef(SHARED_DOC_KEYS.contributions);
-                    await setDoc(noteRef, { [id]: normalizeContributionEntry(contributionNotes[id]) }, { merge: true });
-                } catch (err) {
-                    console.error('Failed to save contribution note:', err);
-                    setSyncMessage(`Note save failed: ${err.code || 'unknown-error'}`, 'error');
-                }
+            if (!hasFirebaseConfig) return;
+
+            noteSaveTimers[id] = setTimeout(() => {
+                scheduleCloudStateSave();
             }, 500);
         };
 
@@ -636,10 +796,13 @@
 
             if (!hasFirebaseConfig) {
                 setSyncMessage('Local Mode (No Cloud Config)', 'warning');
+                setCloudActionMsg('Cloud disabled. Configure Firebase to enable shared persistence.');
                 return;
             }
 
             startCloudSync();
+            await refreshRecordOptions();
+            await saveCompleteStateToCloud('auto');
 
             try {
                 await signInAnonymously(auth);
@@ -658,15 +821,8 @@
             renderTable();
 
             if (!hasFirebaseConfig) return;
-            
-            // Save to Firestore
-            const docRef = getSharedDocRef(SHARED_DOC_KEYS.attendance);
-            try {
-                await setDoc(docRef, attendanceData, { merge: true });
-            } catch (err) {
-                console.error('Attendance save failed:', err);
-                setSyncMessage(`Attendance save failed: ${err.code || 'unknown-error'}`, 'error');
-            }
+
+            await saveCompleteStateToCloud('auto');
         };
 
         window.renderTable = () => {
