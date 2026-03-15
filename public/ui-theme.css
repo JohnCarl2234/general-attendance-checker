@@ -531,12 +531,28 @@ select:focus-visible {
     color: #8ab9ff;
 }
 
+[data-theme="dark"] .metric-card .metric-label {
+    color: #9fb3d1;
+}
+
+[data-theme="dark"] .metric-card .metric-value {
+    color: #e7edf5;
+}
+
 [data-theme="dark"] .content-note {
     color: #cdd6e4;
 }
 
 [data-theme="dark"] .section-label {
     color: #9fb3d1;
+}
+
+[data-theme="dark"] .text-slate-600,
+[data-theme="dark"] .text-slate-700,
+[data-theme="dark"] .text-slate-500,
+[data-theme="dark"] .text-gray-400,
+[data-theme="dark"] .text-gray-500 {
+    color: #cdd6e4 !important;
 }
 
 [data-theme="dark"] .pill-button {
