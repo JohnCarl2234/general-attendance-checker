@@ -369,7 +369,9 @@
         };
 
         const getSharedDocRef = (docKey) => {
-            return doc(db, 'artifacts', appId, 'public', 'data', docKey);
+            // Firestore document paths must alternate collection/doc segments.
+            // This stores shared docs at: /artifacts/{appId}/public_data/{docKey}
+            return doc(db, 'artifacts', appId, 'public_data', docKey);
         };
 
         const startCloudSync = () => {
