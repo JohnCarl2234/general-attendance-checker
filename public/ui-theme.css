@@ -1,11 +1,11 @@
 :root {
-    --md-sys-color-primary: #a61722;
+    --md-sys-color-primary: #9a151f;
     --md-sys-color-on-primary: #ffffff;
-    --md-sys-color-primary-container: #fde7e2;
-    --md-sys-color-secondary: #d4a017;
-    --md-sys-color-tertiary: #f0c64a;
+    --md-sys-color-primary-container: #f9e6df;
+    --md-sys-color-secondary: #c99212;
+    --md-sys-color-tertiary: #e6b93a;
     --md-sys-color-error: #b01d2a;
-    --md-sys-color-background: #fff7f2;
+    --md-sys-color-background: #fdf6f1;
     --md-sys-color-surface: #ffffff;
     --md-sys-color-surface-strong: #ffffff;
     --md-sys-color-surface-container: #fff0e8;
@@ -102,14 +102,14 @@ select:focus-visible {
 .app-topbar,
 .viewer-topbar {
     backdrop-filter: blur(18px);
-    background: #8a111a;
+    background: #8b121b;
     border-bottom: 1px solid rgba(255, 255, 255, 0.08);
     box-shadow: var(--md-sys-elevation-1);
     transition: transform 220ms ease, opacity 220ms ease;
 }
 
 .nav-samsung {
-    background: #7a0f16;
+    background: #7f1018;
     color: #f8fafc;
     padding: 0.75rem 0 0.45rem;
     border-bottom: 1px solid rgba(255, 255, 255, 0.08);
@@ -148,7 +148,7 @@ select:focus-visible {
 .nav-status-text {
     font-size: 0.85rem;
     font-weight: 600;
-    color: #f6d77a;
+    color: #f2cc62;
     white-space: nowrap;
 }
 
@@ -284,7 +284,7 @@ select:focus-visible {
 .oneui-hero {
     position: relative;
     overflow: hidden;
-    background: #8f141d;
+    background: #8a141c;
     color: #f8fbff;
     border-radius: var(--md-sys-radius-lg);
     box-shadow: var(--md-sys-elevation-2);
@@ -365,7 +365,7 @@ select:focus-visible {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    background: rgba(212, 160, 23, 0.18);
+    background: rgba(201, 146, 18, 0.18);
     color: #8a111a;
     margin-bottom: 0.75rem;
 }
@@ -472,22 +472,22 @@ select:focus-visible {
 .filled-button {
     background: var(--md-sys-color-primary);
     color: var(--md-sys-color-on-primary);
-    box-shadow: 0 8px 20px rgba(166, 23, 34, 0.22);
+    box-shadow: 0 8px 20px rgba(154, 21, 31, 0.22);
 }
 
 .filled-button.secondary {
-    background: #b51b27;
+    background: #a71824;
 }
 
 .filled-button.tertiary {
-    background: var(--md-sys-color-secondary);
+    background: var(--md-sys-color-tertiary);
     color: #2c1a16;
 }
 
 .tonal-button {
-    background: rgba(166, 23, 34, 0.08);
+    background: rgba(154, 21, 31, 0.08);
     color: #8a111a;
-    border-color: rgba(166, 23, 34, 0.18);
+    border-color: rgba(154, 21, 31, 0.18);
 }
 
 .pill-button {
@@ -507,10 +507,10 @@ select:focus-visible {
 }
 
 .chip-filter[data-active="true"] {
-    background: rgba(166, 23, 34, 0.12);
-    border-color: rgba(166, 23, 34, 0.28);
+    background: rgba(154, 21, 31, 0.12);
+    border-color: rgba(154, 21, 31, 0.28);
     color: #8a111a;
-    box-shadow: inset 0 0 0 1px rgba(166, 23, 34, 0.08);
+    box-shadow: inset 0 0 0 1px rgba(154, 21, 31, 0.08);
 }
 
 .text-field,
@@ -562,7 +562,7 @@ select:focus-visible {
 }
 
 .data-table tbody tr:hover {
-    background: rgba(166, 23, 34, 0.05);
+    background: rgba(154, 21, 31, 0.05);
 }
 
 .status-chip {
@@ -580,14 +580,14 @@ select:focus-visible {
 }
 
 .status-chip.present {
-    background: rgba(212, 160, 23, 0.16);
-    border-color: rgba(212, 160, 23, 0.38);
+    background: rgba(201, 146, 18, 0.16);
+    border-color: rgba(201, 146, 18, 0.38);
     color: #7b4b00;
 }
 
 .status-chip.absent {
-    background: rgba(166, 23, 34, 0.12);
-    border-color: rgba(166, 23, 34, 0.32);
+    background: rgba(154, 21, 31, 0.12);
+    border-color: rgba(154, 21, 31, 0.32);
     color: #8a111a;
 }
 
@@ -710,7 +710,7 @@ select:focus-visible {
 }
 
 [data-theme="dark"] body {
-    background: #1a0c0c;
+    background: #1b0c0c;
     color: #f7efe9;
 }
 
@@ -730,14 +730,14 @@ select:focus-visible {
 
 [data-theme="dark"] .app-topbar,
 [data-theme="dark"] .viewer-topbar {
-    background: #5e0d12;
+    background: #5c0d12;
     border-bottom: 1px solid rgba(255, 255, 255, 0.08);
     box-shadow: 0 10px 28px rgba(0, 0, 0, 0.35);
 }
 
 [data-theme="dark"] .oneui-hero {
-    background: #651019;
-    border-color: #7a1c22;
+    background: #611018;
+    border-color: #751a21;
     color: #f7efe9;
 }
 
@@ -753,7 +753,7 @@ select:focus-visible {
 }
 
 [data-theme="dark"] .hero-solid-button {
-    background: #b51b27;
+    background: #a71824;
     color: #ffffff;
 }
 
@@ -769,8 +769,8 @@ select:focus-visible {
 }
 
 [data-theme="dark"] .metric-card .metric-icon {
-    background: rgba(212, 160, 23, 0.22);
-    color: #f6d77a;
+    background: rgba(201, 146, 18, 0.22);
+    color: #f2cc62;
 }
 
 [data-theme="dark"] .metric-card .metric-label {
@@ -807,7 +807,7 @@ select:focus-visible {
 
 [data-theme="dark"] .text-blue-700,
 [data-theme="dark"] .text-blue-600 {
-    color: #f6d77a !important;
+    color: #f2cc62 !important;
 }
 
 [data-theme="dark"] .pill-button {
@@ -817,9 +817,9 @@ select:focus-visible {
 }
 
 [data-theme="dark"] .tonal-button {
-    background: rgba(212, 160, 23, 0.16);
-    color: #f6d77a;
-    border-color: rgba(212, 160, 23, 0.28);
+    background: rgba(201, 146, 18, 0.16);
+    color: #f2cc62;
+    border-color: rgba(201, 146, 18, 0.28);
 }
 
 [data-theme="dark"] .filled-button {
@@ -833,9 +833,9 @@ select:focus-visible {
 }
 
 [data-theme="dark"] .chip-filter[data-active="true"] {
-    background: rgba(212, 160, 23, 0.18);
-    border-color: rgba(212, 160, 23, 0.38);
-    color: #f6d77a;
+    background: rgba(201, 146, 18, 0.18);
+    border-color: rgba(201, 146, 18, 0.38);
+    color: #f2cc62;
 }
 
 [data-theme="dark"] .text-field,
@@ -864,7 +864,7 @@ select:focus-visible {
 }
 
 [data-theme="dark"] .data-table tbody tr:hover {
-    background: rgba(212, 160, 23, 0.12);
+    background: rgba(201, 146, 18, 0.12);
 }
 
 [data-theme="dark"] .record-list {
@@ -873,9 +873,9 @@ select:focus-visible {
 }
 
 [data-theme="dark"] .status-chip.present {
-    background: rgba(212, 160, 23, 0.2);
-    border-color: rgba(212, 160, 23, 0.4);
-    color: #f6d77a;
+    background: rgba(201, 146, 18, 0.2);
+    border-color: rgba(201, 146, 18, 0.4);
+    color: #f2cc62;
 }
 
 [data-theme="dark"] .status-chip.absent {
