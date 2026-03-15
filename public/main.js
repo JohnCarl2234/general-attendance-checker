@@ -17,7 +17,7 @@ const applyTheme = (theme) => {
 };
 
 const initThemeFromStorage = () => {
-    const saved = typeof localStorage !== 'undefined' ? (localStorage.getItem(THEME_KEY) || 'light') : 'light';
+    const saved = typeof localStorage !== 'undefined' ? (localStorage.getItem(THEME_KEY) || 'dark') : 'dark';
     applyTheme(saved);
 };
 

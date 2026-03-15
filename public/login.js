@@ -24,7 +24,7 @@ const initThemeToggle = () => {
             applyTheme(current === 'dark' ? 'light' : 'dark');
         });
     }
-    const saved = localStorage.getItem(themeKey) || 'light';
+    const saved = localStorage.getItem(themeKey) || 'dark';
     applyTheme(saved);
 };
 

@@ -428,6 +428,18 @@ select:focus-visible {
     border-radius: var(--md-sys-radius-sm);
 }
 
+.cloud-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+    align-items: center;
+}
+
+.cloud-actions .select-field {
+    flex: 1 1 240px;
+    min-width: 220px;
+}
+
 .floating-actions {
     position: fixed;
     right: 1.25rem;
@@ -525,6 +537,20 @@ select:focus-visible {
 [data-theme="dark"] body {
     background: #0c1424;
     color: #e7edf5;
+}
+
+[data-theme="dark"] {
+    --md-sys-color-background: #0c1424;
+    --md-sys-color-surface: #0f172a;
+    --md-sys-color-surface-strong: #0f172a;
+    --md-sys-color-surface-container: #0b1324;
+    --md-sys-color-surface-container-high: #111827;
+    --md-sys-color-outline: #1f2937;
+    --md-sys-color-outline-variant: #1f2937;
+    --md-sys-color-on-surface: #e7edf5;
+    --md-sys-color-on-surface-variant: #cdd6e4;
+    --md-sys-color-shadow: rgba(0, 0, 0, 0.35);
+    --md-sys-color-shadow-strong: rgba(0, 0, 0, 0.55);
 }
 
 [data-theme="dark"] .app-topbar,
@@ -666,6 +692,11 @@ select:focus-visible {
     background: rgba(59, 130, 246, 0.12);
 }
 
+[data-theme="dark"] .record-list {
+    background: #0f172a;
+    border-color: #1f2937;
+}
+
 [data-theme="dark"] .status-chip.present {
     background: rgba(34, 197, 94, 0.14);
     border-color: rgba(34, 197, 94, 0.32);
@@ -708,6 +739,20 @@ select:focus-visible {
 }
 
 @media (max-width: 760px) {
+    .cloud-actions {
+        align-items: stretch;
+    }
+
+    .cloud-actions .filled-button,
+    .cloud-actions .tonal-button {
+        width: 100%;
+        justify-content: center;
+    }
+
+    .cloud-actions .select-field {
+        width: 100%;
+    }
+
     .content-frame {
         width: min(100vw - 1rem, 1180px);
     }
@@ -767,6 +812,10 @@ select:focus-visible {
     .metric-grid-compact {
         grid-template-columns: repeat(2, minmax(0, 1fr));
     }
+}
+
+[data-theme="dark"] .data-table td::before {
+    color: #9fb3d1;
 }
 
 @media print {
