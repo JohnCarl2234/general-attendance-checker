@@ -273,6 +273,10 @@
                     <span class="material-symbols-rounded text-base">add</span>
                     Add Member
                 </button>
+                <button onclick="exportStudentsCsv()" class="tonal-button px-4 py-2 rounded-lg text-sm font-bold whitespace-nowrap">
+                    <span class="material-symbols-rounded text-base">file_download</span>
+                    Export CSV
+                </button>
             </div>
             <p id="memberActionMsg" class="content-note text-xs text-slate-500 mt-2"></p>
         </div>
@@ -1164,6 +1168,20 @@
 
             if (!hasFirebaseConfig) return;
             scheduleCloudStateSave();
+        };
+
+        window.exportStudentsCsv = () => {
+            const rows = students.map(s => `${s.name} | ${s.category}`);
+            const csv = rows.join('\n');
+            const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `students_${appId}.csv`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
         };
 
         // Rule 3: Auth Before Queries
