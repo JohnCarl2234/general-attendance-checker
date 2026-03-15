@@ -273,14 +273,11 @@
                     <span class="material-symbols-rounded text-base">add</span>
                     Add Member
                 </button>
-            </div>
-            <div class="flex flex-col sm:flex-row sm:items-center gap-3 mt-3">
-                <button onclick="triggerCsvImport()" class="pill-button px-4 py-2 text-sm font-bold">
+                <button onclick="triggerCsvImport()" class="pill-button px-4 py-2 rounded-lg text-sm font-bold whitespace-nowrap">
                     <span class="material-symbols-rounded text-base">upload_file</span>
                     Import CSV
                 </button>
-                <p class="content-note text-xs">Format: LAST, FIRST M. | Category (e.g., "ACOSTA, JOHN CARL S.| Core Group").</p>
-                <input id="csvFileInput" type="file" accept=".csv,text/csv" class="hidden" onchange="handleCsvFileChange(event)" />
+                <input type="file" id="csvImportInput" accept=".csv,text/csv" class="hidden" />
             </div>
             <p id="memberActionMsg" class="content-note text-xs text-slate-500 mt-2"></p>
         </div>
@@ -1138,71 +1135,6 @@
             await saveCompleteStateToCloud('auto');
         };
 
-        window.triggerCsvImport = () => {
-            const input = document.getElementById('csvFileInput');
-            if (input) input.click();
-        };
-
-        window.handleCsvFileChange = (event) => {
-            const file = event?.target?.files?.[0];
-            if (!file) return;
-            const reader = new FileReader();
-            reader.onload = (e) => {
-                importStudentsFromCsv(e.target?.result || '');
-            };
-            reader.readAsText(file);
-            event.target.value = '';
-        };
-
-        const importStudentsFromCsv = async (text) => {
-            const lines = (text || '').split(/\r?\n/).map(l => l.trim()).filter(Boolean);
-            let added = 0;
-            let skipped = 0;
-
-            lines.forEach((line) => {
-                const parts = line.split('|');
-                if (!parts.length) return;
-                const rawName = (parts[0] || '').trim();
-                const rawCategory = (parts[1] || '').trim();
-
-                if (!rawName) {
-                    skipped += 1;
-                    return;
-                }
-
-                const exists = students.some(s => s.name.toLowerCase() === rawName.toLowerCase());
-                if (exists) {
-                    skipped += 1;
-                    return;
-                }
-
-                const newStudent = {
-                    id: nextStudentId(),
-                    name: rawName,
-                    category: normalizeCategory(rawCategory || 'Team Members')
-                };
-
-                students = [...students, newStudent];
-                added += 1;
-            });
-
-            if (added === 0) {
-                setMemberActionMsg(`No new entries added. Skipped ${skipped}.`);
-                return;
-            }
-
-            renderBulkCategoryOptions();
-            setBulkCategory(bulkCategory);
-            renderTable();
-            saveLocalState();
-
-            if (hasFirebaseConfig) {
-                await saveCompleteStateToCloud('auto');
-            }
-
-            setMemberActionMsg(`Imported ${added} entr${added === 1 ? 'y' : 'ies'}. Skipped ${skipped}.`);
-        };
-
         window.removeStudent = async (id) => {
             const student = students.find(s => s.id === id);
             if (!student) return;
@@ -1239,6 +1171,84 @@
             scheduleCloudStateSave();
         };
 
+        window.triggerCsvImport = () => {
+            const input = document.getElementById('csvImportInput');
+            if (input) input.click();
+        };
+
+        const parseCsvLines = (text) => {
+            return text
+                .split(/\r?\n/)
+                .map(line => line.trim())
+                .filter(line => line.length > 0)
+                .map(line => {
+                    const parts = line.split(',').map(p => p.trim()).filter(Boolean);
+                    if (parts.length < 2) return null;
+                    const categoryRaw = parts.pop();
+                    const name = parts.join(', ');
+                    const category = normalizeCategory(categoryRaw || 'Team Members');
+                    if (!name) return null;
+                    return { name, category };
+                })
+                .filter(Boolean);
+        };
+
+        const upsertStudentsFromCsv = (rows) => {
+            let added = 0;
+            let updated = 0;
+            const nameIndex = new Map();
+            students.forEach(s => nameIndex.set(s.name.toLowerCase(), s));
+
+            rows.forEach(row => {
+                const key = row.name.toLowerCase();
+                const existing = nameIndex.get(key);
+                if (existing) {
+                    existing.category = row.category;
+                    updated += 1;
+                } else {
+                    const id = nextStudentId();
+                    const student = { id, name: row.name, category: row.category };
+                    students = [...students, student];
+                    nameIndex.set(key, student);
+                    added += 1;
+                }
+            });
+
+            renderBulkCategoryOptions();
+            setBulkCategory(bulkCategory);
+            renderTable();
+            saveLocalState();
+
+            if (hasFirebaseConfig) {
+                scheduleCloudStateSave();
+            }
+
+            setMemberActionMsg(`CSV import: ${added} added, ${updated} updated.`);
+        };
+
+        const attachCsvListener = () => {
+            const input = document.getElementById('csvImportInput');
+            if (!input) return;
+            input.addEventListener('change', async (e) => {
+                const file = e.target.files?.[0];
+                if (!file) return;
+                try {
+                    const text = await file.text();
+                    const rows = parseCsvLines(text);
+                    if (!rows.length) {
+                        setMemberActionMsg('CSV import: no valid rows found.');
+                    } else {
+                        upsertStudentsFromCsv(rows);
+                    }
+                } catch (err) {
+                    console.error('CSV import failed:', err);
+                    setMemberActionMsg('CSV import failed. Please check the file.');
+                } finally {
+                    e.target.value = '';
+                }
+            });
+        };
+
         // Rule 3: Auth Before Queries
         const init = async () => {
             document.body.style.visibility = 'hidden';
@@ -1251,6 +1261,7 @@
             renderTable();
             updateDateTimeDisplay();
             setInterval(updateDateTimeDisplay, 1000);
+            attachCsvListener();
 
             if (!hasFirebaseConfig) {
                 setSyncMessage('Local Mode (No Cloud Config)', 'warning');
