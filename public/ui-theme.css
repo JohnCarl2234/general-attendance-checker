@@ -1,22 +1,22 @@
 :root {
-    --md-sys-color-primary: #1d7adf;
+    --md-sys-color-primary: #a61722;
     --md-sys-color-on-primary: #ffffff;
-    --md-sys-color-primary-container: #e4efff;
-    --md-sys-color-secondary: #0ea5e9;
-    --md-sys-color-tertiary: #0fb987;
-    --md-sys-color-error: #b3261e;
-    --md-sys-color-background: #f7f8fb;
+    --md-sys-color-primary-container: #fde7e2;
+    --md-sys-color-secondary: #d4a017;
+    --md-sys-color-tertiary: #f0c64a;
+    --md-sys-color-error: #b01d2a;
+    --md-sys-color-background: #fff7f2;
     --md-sys-color-surface: #ffffff;
     --md-sys-color-surface-strong: #ffffff;
-    --md-sys-color-surface-container: #f1f4fb;
+    --md-sys-color-surface-container: #fff0e8;
     --md-sys-color-surface-container-high: #ffffff;
-    --md-sys-color-surface-tint: rgba(29, 122, 223, 0.06);
-    --md-sys-color-outline: #d9e1ec;
-    --md-sys-color-outline-variant: #e6edf7;
-    --md-sys-color-on-surface: #0f172a;
-    --md-sys-color-on-surface-variant: #4b5565;
-    --md-sys-color-shadow: rgba(15, 23, 42, 0.08);
-    --md-sys-color-shadow-strong: rgba(15, 23, 42, 0.16);
+    --md-sys-color-surface-tint: rgba(166, 23, 34, 0.08);
+    --md-sys-color-outline: #f0d3c2;
+    --md-sys-color-outline-variant: #f6e1d6;
+    --md-sys-color-on-surface: #2c1a16;
+    --md-sys-color-on-surface-variant: #6f4a3f;
+    --md-sys-color-shadow: rgba(76, 28, 20, 0.08);
+    --md-sys-color-shadow-strong: rgba(76, 28, 20, 0.16);
     --md-sys-radius-xs: 14px;
     --md-sys-radius-sm: 18px;
     --md-sys-radius-md: 24px;
@@ -102,14 +102,14 @@ select:focus-visible {
 .app-topbar,
 .viewer-topbar {
     backdrop-filter: blur(18px);
-    background: #1d7adf;
+    background: #8a111a;
     border-bottom: 1px solid rgba(255, 255, 255, 0.08);
     box-shadow: var(--md-sys-elevation-1);
     transition: transform 220ms ease, opacity 220ms ease;
 }
 
 .nav-samsung {
-    background: #0b2346;
+    background: #7a0f16;
     color: #f8fafc;
     padding: 0.75rem 0 0.45rem;
     border-bottom: 1px solid rgba(255, 255, 255, 0.08);
@@ -148,7 +148,7 @@ select:focus-visible {
 .nav-status-text {
     font-size: 0.85rem;
     font-weight: 600;
-    color: #9cf5c8;
+    color: #f6d77a;
     white-space: nowrap;
 }
 
@@ -284,7 +284,7 @@ select:focus-visible {
 .oneui-hero {
     position: relative;
     overflow: hidden;
-    background: #0f5fb3;
+    background: #8f141d;
     color: #f8fbff;
     border-radius: var(--md-sys-radius-lg);
     box-shadow: var(--md-sys-elevation-2);
@@ -365,8 +365,8 @@ select:focus-visible {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    background: rgba(29, 122, 223, 0.12);
-    color: #0f5fb3;
+    background: rgba(212, 160, 23, 0.18);
+    color: #8a111a;
     margin-bottom: 0.75rem;
 }
 
@@ -472,21 +472,22 @@ select:focus-visible {
 .filled-button {
     background: var(--md-sys-color-primary);
     color: var(--md-sys-color-on-primary);
-    box-shadow: 0 8px 20px rgba(29, 122, 223, 0.16);
+    box-shadow: 0 8px 20px rgba(166, 23, 34, 0.22);
 }
 
 .filled-button.secondary {
-    background: var(--md-sys-color-secondary);
+    background: #b51b27;
 }
 
 .filled-button.tertiary {
-    background: var(--md-sys-color-tertiary);
+    background: var(--md-sys-color-secondary);
+    color: #2c1a16;
 }
 
 .tonal-button {
-    background: rgba(29, 122, 223, 0.08);
-    color: var(--md-sys-color-primary);
-    border-color: rgba(29, 122, 223, 0.14);
+    background: rgba(166, 23, 34, 0.08);
+    color: #8a111a;
+    border-color: rgba(166, 23, 34, 0.18);
 }
 
 .pill-button {
@@ -506,10 +507,10 @@ select:focus-visible {
 }
 
 .chip-filter[data-active="true"] {
-    background: rgba(29, 122, 223, 0.12);
-    border-color: rgba(29, 122, 223, 0.24);
-    color: var(--md-sys-color-primary);
-    box-shadow: inset 0 0 0 1px rgba(29, 122, 223, 0.08);
+    background: rgba(166, 23, 34, 0.12);
+    border-color: rgba(166, 23, 34, 0.28);
+    color: #8a111a;
+    box-shadow: inset 0 0 0 1px rgba(166, 23, 34, 0.08);
 }
 
 .text-field,
@@ -561,7 +562,7 @@ select:focus-visible {
 }
 
 .data-table tbody tr:hover {
-    background: rgba(124, 29, 29, 0.03);
+    background: rgba(166, 23, 34, 0.05);
 }
 
 .status-chip {
@@ -579,15 +580,15 @@ select:focus-visible {
 }
 
 .status-chip.present {
-    background: rgba(15, 185, 135, 0.12);
-    border-color: rgba(15, 185, 135, 0.28);
-    color: #0c6e50;
+    background: rgba(212, 160, 23, 0.16);
+    border-color: rgba(212, 160, 23, 0.38);
+    color: #7b4b00;
 }
 
 .status-chip.absent {
-    background: rgba(29, 122, 223, 0.07);
-    border-color: rgba(29, 122, 223, 0.22);
-    color: #1f3d63;
+    background: rgba(166, 23, 34, 0.12);
+    border-color: rgba(166, 23, 34, 0.32);
+    color: #8a111a;
 }
 
 .content-note {
@@ -709,35 +710,35 @@ select:focus-visible {
 }
 
 [data-theme="dark"] body {
-    background: #0c1424;
-    color: #e7edf5;
+    background: #1a0c0c;
+    color: #f7efe9;
 }
 
 [data-theme="dark"] {
-    --md-sys-color-background: #0c1424;
-    --md-sys-color-surface: #0f172a;
-    --md-sys-color-surface-strong: #0f172a;
-    --md-sys-color-surface-container: #0b1324;
-    --md-sys-color-surface-container-high: #111827;
-    --md-sys-color-outline: #1f2937;
-    --md-sys-color-outline-variant: #1f2937;
-    --md-sys-color-on-surface: #e7edf5;
-    --md-sys-color-on-surface-variant: #cdd6e4;
-    --md-sys-color-shadow: rgba(0, 0, 0, 0.35);
-    --md-sys-color-shadow-strong: rgba(0, 0, 0, 0.55);
+    --md-sys-color-background: #1a0c0c;
+    --md-sys-color-surface: #231111;
+    --md-sys-color-surface-strong: #231111;
+    --md-sys-color-surface-container: #1d0f0f;
+    --md-sys-color-surface-container-high: #271414;
+    --md-sys-color-outline: #3d2020;
+    --md-sys-color-outline-variant: #3d2020;
+    --md-sys-color-on-surface: #f7efe9;
+    --md-sys-color-on-surface-variant: #e0c9bb;
+    --md-sys-color-shadow: rgba(0, 0, 0, 0.45);
+    --md-sys-color-shadow-strong: rgba(0, 0, 0, 0.65);
 }
 
 [data-theme="dark"] .app-topbar,
 [data-theme="dark"] .viewer-topbar {
-    background: #0b274d;
+    background: #5e0d12;
     border-bottom: 1px solid rgba(255, 255, 255, 0.08);
-    box-shadow: 0 10px 28px rgba(0, 0, 0, 0.25);
+    box-shadow: 0 10px 28px rgba(0, 0, 0, 0.35);
 }
 
 [data-theme="dark"] .oneui-hero {
-    background: #0f1f3a;
-    border-color: #1d2f52;
-    color: #e7edf5;
+    background: #651019;
+    border-color: #7a1c22;
+    color: #f7efe9;
 }
 
 [data-theme="dark"] .oneui-chip {
@@ -752,8 +753,8 @@ select:focus-visible {
 }
 
 [data-theme="dark"] .hero-solid-button {
-    background: #1d4ed8;
-    color: #e7edf5;
+    background: #b51b27;
+    color: #ffffff;
 }
 
 [data-theme="dark"] .surface-card,
@@ -768,8 +769,8 @@ select:focus-visible {
 }
 
 [data-theme="dark"] .metric-card .metric-icon {
-    background: rgba(30, 111, 255, 0.18);
-    color: #8ab9ff;
+    background: rgba(212, 160, 23, 0.22);
+    color: #f6d77a;
 }
 
 [data-theme="dark"] .metric-card .metric-label {
@@ -806,7 +807,7 @@ select:focus-visible {
 
 [data-theme="dark"] .text-blue-700,
 [data-theme="dark"] .text-blue-600 {
-    color: #93c5fd !important;
+    color: #f6d77a !important;
 }
 
 [data-theme="dark"] .pill-button {
@@ -816,9 +817,9 @@ select:focus-visible {
 }
 
 [data-theme="dark"] .tonal-button {
-    background: rgba(26, 115, 232, 0.16);
-    color: #8ab9ff;
-    border-color: rgba(26, 115, 232, 0.28);
+    background: rgba(212, 160, 23, 0.16);
+    color: #f6d77a;
+    border-color: rgba(212, 160, 23, 0.28);
 }
 
 [data-theme="dark"] .filled-button {
@@ -832,9 +833,9 @@ select:focus-visible {
 }
 
 [data-theme="dark"] .chip-filter[data-active="true"] {
-    background: rgba(26, 115, 232, 0.16);
-    border-color: rgba(26, 115, 232, 0.36);
-    color: #99c1ff;
+    background: rgba(212, 160, 23, 0.18);
+    border-color: rgba(212, 160, 23, 0.38);
+    color: #f6d77a;
 }
 
 [data-theme="dark"] .text-field,
@@ -863,7 +864,7 @@ select:focus-visible {
 }
 
 [data-theme="dark"] .data-table tbody tr:hover {
-    background: rgba(59, 130, 246, 0.12);
+    background: rgba(212, 160, 23, 0.12);
 }
 
 [data-theme="dark"] .record-list {
@@ -872,15 +873,15 @@ select:focus-visible {
 }
 
 [data-theme="dark"] .status-chip.present {
-    background: rgba(34, 197, 94, 0.14);
-    border-color: rgba(34, 197, 94, 0.32);
-    color: #a7f3d0;
+    background: rgba(212, 160, 23, 0.2);
+    border-color: rgba(212, 160, 23, 0.4);
+    color: #f6d77a;
 }
 
 [data-theme="dark"] .status-chip.absent {
-    background: rgba(59, 130, 246, 0.14);
-    border-color: rgba(59, 130, 246, 0.32);
-    color: #bfdbfe;
+    background: rgba(166, 23, 34, 0.28);
+    border-color: rgba(166, 23, 34, 0.45);
+    color: #ffc7c7;
 }
 
 [data-theme="dark"] .auth-hero {
