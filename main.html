@@ -238,6 +238,7 @@
         let activeCategory = "All";
         let bulkCategory = "All";
         let isViewingRecord = false;
+        const LIVE_RECORD_OPTION = '__live__';
         const CATEGORY_OPTIONS = ["Core Group", "Asessment", "Team Members", "Proposal Drafters"];
         const CONTRIBUTION_PRESETS = ["", "Contributed", "Not Contributed", "Needs Follow-up"];
         const LOCAL_STORAGE_KEYS = {
@@ -483,7 +484,10 @@
             try {
                 const q = query(getRecordsCollectionRef(), orderBy('savedAtMs', 'desc'), limit(100));
                 const snap = await getDocs(q);
-                const options = ['<option value="">Select saved record...</option>'];
+                const options = [
+                    `<option value="${LIVE_RECORD_OPTION}">Live Cloud State (Latest)</option>`,
+                    '<option value="">Select saved record...</option>'
+                ];
 
                 snap.forEach((recordDoc) => {
                     const data = recordDoc.data() || {};
@@ -492,15 +496,45 @@
                 });
 
                 select.innerHTML = options.join('');
+                if (!isViewingRecord) {
+                    select.value = LIVE_RECORD_OPTION;
+                }
             } catch (err) {
                 console.error('Failed loading record list:', err);
                 setCloudActionMsg(`Record list failed: ${err.code || 'unknown-error'}`);
             }
         };
 
+        const createHistoricalRecord = async (labelPrefix = 'Record') => {
+            const savedAtMs = Date.now();
+            const recordId = String(savedAtMs);
+            const savedAtLabel = `${labelPrefix} - ${nowStamp()}`;
+            const recordRef = getRecordDocRef(recordId);
+            const payload = {
+                ...buildCloudPayload(),
+                savedAtMs,
+                savedAtLabel
+            };
+
+            await setDoc(recordRef, payload, { merge: true });
+            return payload;
+        };
+
         window.saveAllToCloud = async () => {
-            await saveCompleteStateToCloud('manual');
-            await refreshRecordOptions();
+            if (!hasFirebaseConfig) {
+                setCloudActionMsg('Cloud save skipped: no Firebase config');
+                return;
+            }
+
+            try {
+                await saveCompleteStateToCloud('manual');
+                const payload = await createHistoricalRecord('Save All');
+                setCloudActionMsg(`Saved to cloud and archived: ${payload.savedAtLabel}`);
+                await refreshRecordOptions();
+            } catch (err) {
+                console.error('Save all failed:', err);
+                setCloudActionMsg(`Save all failed: ${err.code || 'unknown-error'}`);
+            }
         };
 
         window.saveAsRecord = async () => {
@@ -511,17 +545,7 @@
 
             try {
                 await saveCompleteStateToCloud('auto');
-
-                const savedAtMs = Date.now();
-                const recordId = String(savedAtMs);
-                const recordRef = getRecordDocRef(recordId);
-                const payload = {
-                    ...buildCloudPayload(),
-                    savedAtMs,
-                    savedAtLabel: nowStamp()
-                };
-
-                await setDoc(recordRef, payload, { merge: true });
+                const payload = await createHistoricalRecord('Record');
                 setCloudActionMsg(`Record saved at ${payload.savedAtLabel}`);
                 await refreshRecordOptions();
             } catch (err) {
@@ -543,6 +567,11 @@
                 return;
             }
 
+            if (recordId === LIVE_RECORD_OPTION) {
+                await returnToLiveMode();
+                return;
+            }
+
             try {
                 const recordRef = getRecordDocRef(recordId);
                 const snap = await getDoc(recordRef);
@@ -552,6 +581,7 @@
                 }
 
                 isViewingRecord = true;
+                if (select) select.value = recordId;
                 applyCloudPayload(snap.data());
                 renderTable();
                 setCloudActionMsg(`Viewing record: ${snap.data().savedAtLabel || recordId}`);
@@ -580,6 +610,8 @@
                 renderTable();
                 setCloudActionMsg('Returned to live cloud state');
                 setSyncMessage('Cloud Sync Active', 'online');
+                const select = document.getElementById('recordSelect');
+                if (select) select.value = LIVE_RECORD_OPTION;
             } catch (err) {
                 console.error('Return to live mode failed:', err);
                 setCloudActionMsg(`Return failed: ${err.code || 'unknown-error'}`);
