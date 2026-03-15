@@ -26,7 +26,13 @@
             body {
                 background: #fff !important;
                 padding-bottom: 0 !important;
-                color: #0f172a;
+                color: #111827 !important;
+                -webkit-print-color-adjust: exact;
+                print-color-adjust: exact;
+            }
+
+            * {
+                color: #111827 !important;
             }
 
             nav,
@@ -66,11 +72,13 @@
                 padding: 7px 8px;
                 vertical-align: top;
                 text-align: left;
+                color: #111827 !important;
             }
 
             .print-report-table th {
-                background: #f8fafc;
+                background: #f1f5f9;
                 font-weight: 700;
+                color: #0f172a !important;
             }
 
             .print-report-table tr {
@@ -100,7 +108,7 @@
 
     <main class="content-frame max-w-7xl mx-auto px-4 py-6">
         <section id="printMeta" class="hidden mb-4 border-b pb-3">
-            <h2 class="text-lg font-bold">NSTP CLOUD TRACKER</h2>
+            <h2 id="printTitle" class="text-lg font-bold">NSTP CLOUD TRACKER</h2>
             <p id="printDateTime" class="text-sm text-slate-700">Exported: --</p>
             <p id="printCategory" class="text-sm text-slate-700">Category: All</p>
         </section>
@@ -1007,6 +1015,7 @@
         };
 
         window.exportPdf = () => {
+            document.getElementById('printTitle').innerText = 'COMMUNITY PROJECT ATTENDANCE MONITOR';
             document.getElementById('printDateTime').innerText = `Exported: ${nowStamp()}`;
             document.getElementById('printCategory').innerText = `Category: ${activeCategory}`;
             buildPrintTable();
