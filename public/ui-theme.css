@@ -428,6 +428,47 @@ select:focus-visible {
     border-radius: var(--md-sys-radius-sm);
 }
 
+.floating-actions {
+    position: fixed;
+    right: 1.25rem;
+    bottom: 1.5rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.6rem;
+    opacity: 0;
+    pointer-events: none;
+    transform: translateY(12px);
+    transition: opacity 180ms ease, transform 180ms ease;
+    z-index: 60;
+}
+
+.floating-actions.is-visible {
+    opacity: 1;
+    pointer-events: auto;
+    transform: translateY(0);
+}
+
+.floating-actions .action-btn {
+    width: 46px;
+    height: 46px;
+    border-radius: 14px;
+    background: var(--md-sys-color-surface-container-high);
+    border: 1px solid var(--md-sys-color-outline-variant);
+    box-shadow: var(--md-sys-elevation-1);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--md-sys-color-on-surface);
+    cursor: pointer;
+}
+
+[data-theme="dark"] .floating-actions .action-btn {
+    background: #0f172a;
+    border-color: #1f2937;
+    color: #e7edf5;
+    box-shadow: 0 10px 28px rgba(0, 0, 0, 0.35);
+}
+
 .section-label {
     color: #4b5565;
     font-size: 0.72rem;

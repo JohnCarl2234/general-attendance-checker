@@ -78,6 +78,15 @@
         </div>
     </main>
 
+    <div id="viewerQuickActions" class="floating-actions" aria-hidden="true">
+        <button id="viewerSearchFab" class="action-btn" title="Search" aria-label="Search">
+            <span class="material-symbols-rounded">search</span>
+        </button>
+        <button id="viewerTopFab" class="action-btn" title="Back to top" aria-label="Back to top">
+            <span class="material-symbols-rounded">arrow_upward</span>
+        </button>
+    </div>
+
     <script src="./firebase-config.js"></script>
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
@@ -105,6 +114,32 @@
             }
             const saved = typeof localStorage !== 'undefined' ? (localStorage.getItem(THEME_KEY) || 'light') : 'light';
             applyTheme(saved);
+        };
+
+        const initQuickActions = () => {
+            const quickActions = document.getElementById('viewerQuickActions');
+            const searchFab = document.getElementById('viewerSearchFab');
+            const topFab = document.getElementById('viewerTopFab');
+            const searchInput = document.getElementById('searchBox');
+            if (!quickActions || !searchFab || !topFab || !searchInput) return;
+
+            const toggleVisibility = () => {
+                const show = window.scrollY > 420;
+                quickActions.classList.toggle('is-visible', show);
+                quickActions.setAttribute('aria-hidden', show ? 'false' : 'true');
+            };
+
+            window.addEventListener('scroll', toggleVisibility, { passive: true });
+            toggleVisibility();
+
+            searchFab.addEventListener('click', () => {
+                searchInput.focus();
+                searchInput.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            });
+
+            topFab.addEventListener('click', () => {
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+            });
         };
 
         const injectedFirebaseConfig = typeof window !== 'undefined' ? window.FIREBASE_CONFIG : undefined;
@@ -223,6 +258,7 @@
 
         const init = async () => {
             initThemeToggle();
+            initQuickActions();
             document.getElementById('searchBox').addEventListener('input', renderTable);
 
             if (!firebaseConfig) {
