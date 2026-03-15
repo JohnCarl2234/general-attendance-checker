@@ -108,6 +108,101 @@ select:focus-visible {
     transition: transform 220ms ease, opacity 220ms ease;
 }
 
+.nav-samsung {
+    background: #0b2346;
+    color: #f8fafc;
+    padding: 0.9rem 0;
+}
+
+.nav-samsung-inner {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+}
+
+.nav-brand {
+    font-size: 1.25rem;
+    font-weight: 900;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+}
+
+.nav-actions {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.75rem;
+}
+
+.nav-icon-btn {
+    width: 42px;
+    height: 42px;
+    border-radius: 999px;
+    border: 1px solid rgba(255, 255, 255, 0.18);
+    background: rgba(255, 255, 255, 0.06);
+    color: #f8fafc;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.nav-menu {
+    position: absolute;
+    right: 0;
+    top: calc(100% + 0.5rem);
+    min-width: 180px;
+    background: #0f172a;
+    border: 1px solid #1f2937;
+    border-radius: 16px;
+    padding: 0.6rem;
+    box-shadow: 0 16px 32px rgba(0, 0, 0, 0.35);
+    display: none;
+    flex-direction: column;
+    gap: 0.35rem;
+    z-index: 60;
+}
+
+.nav-menu.is-open {
+    display: flex;
+}
+
+.nav-menu-title {
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 0.18em;
+    color: #9fb3d1;
+    padding: 0.35rem 0.6rem 0.2rem;
+}
+
+.nav-menu-link {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.6rem;
+    padding: 0.55rem 0.7rem;
+    border-radius: 12px;
+    color: #e7edf5;
+    font-weight: 600;
+    background: transparent;
+    border: 1px solid transparent;
+}
+
+.nav-menu-link:hover {
+    background: rgba(255, 255, 255, 0.08);
+    border-color: rgba(255, 255, 255, 0.08);
+}
+
+.nav-menu-button {
+    background: transparent;
+    cursor: pointer;
+}
+
+.nav-status {
+    padding-top: 0.35rem;
+}
+
 .mobile-topbar-peek .app-topbar,
 .mobile-topbar-peek .viewer-topbar {
     animation: topbar-peek 260ms ease;

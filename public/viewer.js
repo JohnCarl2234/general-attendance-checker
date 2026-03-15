@@ -25,6 +25,30 @@ const initThemeToggle = () => {
     applyTheme(saved);
 };
 
+const initViewerMenu = () => {
+    const toggle = document.getElementById('viewerMenuToggle');
+    const menu = document.getElementById('viewerMenu');
+    if (!toggle || !menu) return;
+
+    const setOpen = (open) => {
+        menu.classList.toggle('is-open', open);
+        menu.setAttribute('aria-hidden', open ? 'false' : 'true');
+        toggle.setAttribute('aria-expanded', open ? 'true' : 'false');
+    };
+
+    toggle.addEventListener('click', (event) => {
+        event.stopPropagation();
+        const isOpen = menu.classList.contains('is-open');
+        setOpen(!isOpen);
+    });
+
+    document.addEventListener('click', (event) => {
+        if (!menu.contains(event.target) && !toggle.contains(event.target)) {
+            setOpen(false);
+        }
+    });
+};
+
 const initMobileTopbar = () => {
     const toggleBtn = document.getElementById('viewerMobileTopbarToggle');
     const toggleIcon = document.getElementById('viewerMobileTopbarToggleIcon');
@@ -220,6 +244,7 @@ const refreshRecordOptions = async (db) => {
 
 const init = async () => {
     initThemeToggle();
+    initViewerMenu();
     initMobileTopbar();
     initQuickActions();
     document.getElementById('searchBox').addEventListener('input', renderTable);

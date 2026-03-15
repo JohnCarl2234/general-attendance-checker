@@ -13,16 +13,25 @@
     <script src="./theme-init.js"></script>
 </head>
 <body class="viewer-shell min-h-screen font-sans pb-20">
-    <nav class="viewer-topbar text-white shadow-xl sticky top-0 z-50 p-4">
-        <div class="content-frame topbar-panel max-w-7xl mx-auto flex justify-between items-center">
-            <div>
-                <h1 class="viewer-title text-xl font-bold">NSTP ATTENDANCE DASHBOARD</h1>
-                <p id="statusMsg" class="supporting-text text-xs text-yellow-300 font-bold">Connecting to cloud...</p>
+    <nav class="viewer-topbar nav-samsung sticky top-0 z-50">
+        <div class="content-frame nav-samsung-inner">
+            <div class="nav-brand">NSTP</div>
+            <div class="nav-actions">
+                <button id="viewerMenuToggle" class="nav-icon-btn" aria-label="Open menu" aria-expanded="false">
+                    <span class="material-symbols-rounded">menu</span>
+                </button>
+                <div id="viewerMenu" class="nav-menu" aria-hidden="true">
+                    <div class="nav-menu-title">Options</div>
+                    <a href="./login.html" class="nav-menu-link">Admin Login</a>
+                    <button id="viewerThemeToggle" class="nav-menu-link nav-menu-button" type="button">
+                        <span id="viewerThemeIcon" class="material-symbols-rounded">dark_mode</span>
+                        <span id="viewerThemeLabel">Dark</span>
+                    </button>
+                </div>
             </div>
-            <div class="flex gap-2">
-                <a href="./login.html" class="tonal-button text-white px-4 py-1 rounded font-bold text-sm">Admin Login</a>
-                <button id="viewerThemeToggle" class="pill-button text-white px-4 py-1 rounded font-bold text-sm"><span id="viewerThemeIcon" class="material-symbols-rounded text-base">dark_mode</span> <span id="viewerThemeLabel">Dark</span></button>
-            </div>
+        </div>
+        <div class="content-frame nav-status">
+            <p id="statusMsg" class="supporting-text text-xs text-yellow-300 font-bold">Connecting to cloud...</p>
         </div>
     </nav>
 
