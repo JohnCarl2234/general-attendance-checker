@@ -52,25 +52,41 @@ const initViewerMenu = () => {
 const initMobileTopbar = () => {
     const mediaQuery = window.matchMedia('(max-width: 760px)');
     let lastScroll = window.scrollY || 0;
+    let isHidden = false;
+    let peekTimer = null;
 
     const setHidden = (hidden) => {
+        if (hidden === isHidden) return;
+        isHidden = hidden;
         document.body.classList.toggle('mobile-topbar-hidden', hidden);
         if (!hidden) {
             document.body.classList.add('mobile-topbar-peek');
-            window.setTimeout(() => document.body.classList.remove('mobile-topbar-peek'), 320);
+            if (peekTimer) {
+                window.clearTimeout(peekTimer);
+            }
+            peekTimer = window.setTimeout(() => {
+                document.body.classList.remove('mobile-topbar-peek');
+                peekTimer = null;
+            }, 320);
         }
     };
 
     const handleScroll = () => {
         if (!mediaQuery.matches) return;
         const current = window.scrollY || 0;
-        const shouldHide = current > 80 && current > lastScroll;
-        setHidden(shouldHide);
+        const delta = current - lastScroll;
+        if (Math.abs(delta) < 8) return;
+        if (current < 40) {
+            setHidden(false);
+            lastScroll = current;
+            return;
+        }
+        setHidden(delta > 0);
         lastScroll = current;
     };
 
     mediaQuery.addEventListener('change', () => {
-        document.body.classList.remove('mobile-topbar-hidden');
+        setHidden(false);
     });
 
     window.addEventListener('scroll', handleScroll, { passive: true });
