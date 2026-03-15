@@ -21,6 +21,30 @@ const initThemeFromStorage = () => {
     applyTheme(saved);
 };
 
+const initAdminMenu = () => {
+    const toggle = document.getElementById('adminMenuToggle');
+    const menu = document.getElementById('adminMenu');
+    if (!toggle || !menu) return;
+
+    const setOpen = (open) => {
+        menu.classList.toggle('is-open', open);
+        menu.setAttribute('aria-hidden', open ? 'false' : 'true');
+        toggle.setAttribute('aria-expanded', open ? 'true' : 'false');
+    };
+
+    toggle.addEventListener('click', (event) => {
+        event.stopPropagation();
+        const isOpen = menu.classList.contains('is-open');
+        setOpen(!isOpen);
+    });
+
+    document.addEventListener('click', (event) => {
+        if (!menu.contains(event.target) && !toggle.contains(event.target)) {
+            setOpen(false);
+        }
+    });
+};
+
 const initMobileTopbar = () => {
     const mediaQuery = window.matchMedia('(max-width: 760px)');
     let lastScroll = window.scrollY || 0;
@@ -1011,6 +1035,7 @@ const attachCsvListener = () => {
 const init = async () => {
     document.body.style.visibility = 'hidden';
     initThemeFromStorage();
+    initAdminMenu();
     initMobileTopbar();
     applyLocalState();
     if (isPlaceholderList(students)) {
