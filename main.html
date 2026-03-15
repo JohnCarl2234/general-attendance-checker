@@ -197,6 +197,69 @@
         let bulkCategory = "All";
         const CATEGORY_OPTIONS = ["Core Group", "Asessment", "Team Members", "Proposal Drafters"];
         const CONTRIBUTION_PRESETS = ["", "Contributed", "Not Contributed", "Needs Follow-up"];
+        const LOCAL_STORAGE_KEYS = {
+            attendanceByName: `${appId}_attendance_by_name_v1`,
+            categoryByName: `${appId}_category_by_name_v1`,
+            contributionByName: `${appId}_contribution_by_name_v1`
+        };
+
+        const safeReadJson = (key, fallback) => {
+            try {
+                const raw = localStorage.getItem(key);
+                if (!raw) return fallback;
+                return JSON.parse(raw);
+            } catch (err) {
+                console.warn('Failed reading localStorage key:', key, err);
+                return fallback;
+            }
+        };
+
+        const saveLocalState = () => {
+            try {
+                const attendanceByName = {};
+                const categoryByName = {};
+                const contributionByName = {};
+
+                students.forEach(student => {
+                    attendanceByName[student.name] = !!attendanceData[student.id];
+                    categoryByName[student.name] = student.category;
+                    contributionByName[student.name] = normalizeContributionEntry(contributionNotes[student.id]);
+                });
+
+                localStorage.setItem(LOCAL_STORAGE_KEYS.attendanceByName, JSON.stringify(attendanceByName));
+                localStorage.setItem(LOCAL_STORAGE_KEYS.categoryByName, JSON.stringify(categoryByName));
+                localStorage.setItem(LOCAL_STORAGE_KEYS.contributionByName, JSON.stringify(contributionByName));
+            } catch (err) {
+                console.warn('Failed writing localStorage state:', err);
+            }
+        };
+
+        const applyLocalState = () => {
+            const savedAttendance = safeReadJson(LOCAL_STORAGE_KEYS.attendanceByName, {});
+            const savedCategories = safeReadJson(LOCAL_STORAGE_KEYS.categoryByName, {});
+            const savedContributions = safeReadJson(LOCAL_STORAGE_KEYS.contributionByName, {});
+
+            const restoredAttendance = {};
+            const restoredContributions = { ...contributionNotes };
+
+            students.forEach(student => {
+                const savedCategory = savedCategories[student.name];
+                if (savedCategory) {
+                    student.category = normalizeCategory(savedCategory);
+                }
+
+                if (typeof savedAttendance[student.name] === 'boolean') {
+                    restoredAttendance[student.id] = savedAttendance[student.name];
+                }
+
+                if (savedContributions[student.name] !== undefined) {
+                    restoredContributions[student.id] = normalizeContributionEntry(savedContributions[student.name]);
+                }
+            });
+
+            attendanceData = restoredAttendance;
+            contributionNotes = restoredContributions;
+        };
 
         const normalizeCategory = (value) => {
             const safe = (value || "").trim().toLowerCase();
@@ -337,6 +400,7 @@
                 payload[student.id] = isPresent;
             });
 
+            saveLocalState();
             renderTable();
             document.getElementById('bulkActionMsg').innerText = `${targets.length} student(s) marked ${isPresent ? 'Present' : 'Absent'}`;
 
@@ -354,6 +418,7 @@
             const student = students.find(s => s.id === id);
             if (!student) return;
             student.category = normalizeCategory(category);
+            saveLocalState();
             renderTable();
         };
 
@@ -392,12 +457,14 @@
         window.setContributionStatus = (id, status) => {
             const current = normalizeContributionEntry(contributionNotes[id]);
             contributionNotes[id] = { ...current, status };
+            saveLocalState();
             saveContributionDebounced(id);
         };
 
         window.setContributionDetail = (id, details) => {
             const current = normalizeContributionEntry(contributionNotes[id]);
             contributionNotes[id] = { ...current, details };
+            saveLocalState();
             saveContributionDebounced(id);
         };
 
@@ -434,6 +501,7 @@
         // Rule 3: Auth Before Queries
         const init = async () => {
             await loadStudents();
+            applyLocalState();
             renderBulkCategoryOptions();
             setBulkCategory(bulkCategory);
             renderTable();
@@ -468,6 +536,7 @@
                 onSnapshot(docRef, (docSnap) => {
                     if (docSnap.exists()) {
                         attendanceData = docSnap.data();
+                        saveLocalState();
                         renderTable();
                     }
                 }, (error) => console.error("Snapshot error:", error));
@@ -477,6 +546,7 @@
                     if (docSnap.exists()) {
                         contributionNotes = docSnap.data();
                     }
+                    saveLocalState();
                     renderTable();
                 }, (error) => console.error("Contribution snapshot error:", error));
             });
@@ -486,6 +556,7 @@
             const currentStatus = !!attendanceData[id];
             attendanceData[id] = !currentStatus;
 
+            saveLocalState();
             renderTable();
 
             if (!hasFirebaseConfig) return;
