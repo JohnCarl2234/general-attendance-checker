@@ -273,10 +273,14 @@
                     <span class="material-symbols-rounded text-base">add</span>
                     Add Member
                 </button>
-                <button onclick="exportStudentsCsv()" class="tonal-button px-4 py-2 rounded-lg text-sm font-bold whitespace-nowrap">
-                    <span class="material-symbols-rounded text-base">file_download</span>
-                    Export CSV
+            </div>
+            <div class="flex flex-col sm:flex-row sm:items-center gap-3 mt-3">
+                <button onclick="triggerCsvImport()" class="pill-button px-4 py-2 text-sm font-bold">
+                    <span class="material-symbols-rounded text-base">upload_file</span>
+                    Import CSV
                 </button>
+                <p class="content-note text-xs">Format: LAST, FIRST M. | Category (e.g., "ACOSTA, JOHN CARL S.| Core Group").</p>
+                <input id="csvFileInput" type="file" accept=".csv,text/csv" class="hidden" onchange="handleCsvFileChange(event)" />
             </div>
             <p id="memberActionMsg" class="content-note text-xs text-slate-500 mt-2"></p>
         </div>
@@ -1134,6 +1138,71 @@
             await saveCompleteStateToCloud('auto');
         };
 
+        window.triggerCsvImport = () => {
+            const input = document.getElementById('csvFileInput');
+            if (input) input.click();
+        };
+
+        window.handleCsvFileChange = (event) => {
+            const file = event?.target?.files?.[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                importStudentsFromCsv(e.target?.result || '');
+            };
+            reader.readAsText(file);
+            event.target.value = '';
+        };
+
+        const importStudentsFromCsv = async (text) => {
+            const lines = (text || '').split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+            let added = 0;
+            let skipped = 0;
+
+            lines.forEach((line) => {
+                const parts = line.split('|');
+                if (!parts.length) return;
+                const rawName = (parts[0] || '').trim();
+                const rawCategory = (parts[1] || '').trim();
+
+                if (!rawName) {
+                    skipped += 1;
+                    return;
+                }
+
+                const exists = students.some(s => s.name.toLowerCase() === rawName.toLowerCase());
+                if (exists) {
+                    skipped += 1;
+                    return;
+                }
+
+                const newStudent = {
+                    id: nextStudentId(),
+                    name: rawName,
+                    category: normalizeCategory(rawCategory || 'Team Members')
+                };
+
+                students = [...students, newStudent];
+                added += 1;
+            });
+
+            if (added === 0) {
+                setMemberActionMsg(`No new entries added. Skipped ${skipped}.`);
+                return;
+            }
+
+            renderBulkCategoryOptions();
+            setBulkCategory(bulkCategory);
+            renderTable();
+            saveLocalState();
+
+            if (hasFirebaseConfig) {
+                await saveCompleteStateToCloud('auto');
+            }
+
+            setMemberActionMsg(`Imported ${added} entr${added === 1 ? 'y' : 'ies'}. Skipped ${skipped}.`);
+        };
+
         window.removeStudent = async (id) => {
             const student = students.find(s => s.id === id);
             if (!student) return;
@@ -1168,20 +1237,6 @@
 
             if (!hasFirebaseConfig) return;
             scheduleCloudStateSave();
-        };
-
-        window.exportStudentsCsv = () => {
-            const rows = students.map(s => `${s.name} | ${s.category}`);
-            const csv = rows.join('\n');
-            const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = `students_${appId}.csv`;
-            document.body.appendChild(a);
-            a.click();
-            document.body.removeChild(a);
-            URL.revokeObjectURL(url);
         };
 
         // Rule 3: Auth Before Queries
