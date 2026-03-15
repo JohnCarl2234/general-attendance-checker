@@ -10,6 +10,12 @@
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@20..48,400,0,0" />
     <link rel="stylesheet" href="./ui-theme.css">
     <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        (function () {
+            const saved = localStorage.getItem('app_theme') || 'light';
+            document.documentElement.dataset.theme = saved;
+        })();
+    </script>
     <style>
         @media print {
             @page {
@@ -83,6 +89,7 @@
             <div class="flex items-center gap-2">
                 <a id="viewerBtn" href="./viewer.html" class="tonal-button text-white border border-white/20"><span class="material-symbols-rounded text-base">visibility</span> Viewer</a>
                 <button id="logoutBtn" onclick="logoutAdmin()" class="pill-button text-white border border-white/30"><span class="material-symbols-rounded text-base">logout</span> Logout</button>
+                <button id="themeToggle" class="pill-button text-white border border-white/30"><span id="themeToggleIcon" class="material-symbols-rounded text-base">dark_mode</span> <span id="themeToggleLabel">Dark</span></button>
             </div>
         </div>
     </nav>
@@ -316,6 +323,24 @@
         import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
 
         // Global Variables
+        const THEME_KEY = 'app_theme';
+
+        const applyTheme = (theme) => {
+            const next = theme === 'dark' ? 'dark' : 'light';
+            document.documentElement.dataset.theme = next;
+            try { localStorage.setItem(THEME_KEY, next); } catch (err) { /* ignore */ }
+
+            const icon = document.getElementById('themeToggleIcon');
+            const label = document.getElementById('themeToggleLabel');
+            if (icon) icon.innerText = next === 'dark' ? 'light_mode' : 'dark_mode';
+            if (label) label.innerText = next === 'dark' ? 'Light' : 'Dark';
+        };
+
+        const initThemeFromStorage = () => {
+            const saved = typeof localStorage !== 'undefined' ? (localStorage.getItem(THEME_KEY) || 'light') : 'light';
+            applyTheme(saved);
+        };
+
         const injectedFirebaseConfig =
             typeof __firebase_config !== 'undefined'
                 ? __firebase_config
@@ -1263,6 +1288,7 @@
         // Rule 3: Auth Before Queries
         const init = async () => {
             document.body.style.visibility = 'hidden';
+            initThemeFromStorage();
             applyLocalState();
             if (isPlaceholderList(students)) {
                 students = [];
@@ -1336,6 +1362,16 @@
             await saveCompleteStateToCloud('auto');
             setSyncMessage('Cloud Sync Active', 'online');
         };
+
+        document.addEventListener('DOMContentLoaded', () => {
+            const toggle = document.getElementById('themeToggle');
+            if (toggle) {
+                toggle.addEventListener('click', () => {
+                    const current = document.documentElement.dataset.theme === 'dark' ? 'dark' : 'light';
+                    applyTheme(current === 'dark' ? 'light' : 'dark');
+                });
+            }
+        });
 
         window.toggleAttendance = async (id) => {
             const currentStatus = !!attendanceData[id];

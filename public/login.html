@@ -9,6 +9,12 @@
     <link href="https://fonts.googleapis.com/css2?family=Roboto+Flex:opsz,wght@8..144,100..1000&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="./ui-theme.css">
     <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        (function () {
+            const saved = localStorage.getItem('app_theme') || 'light';
+            document.documentElement.dataset.theme = saved;
+        })();
+    </script>
 </head>
 <body class="auth-shell min-h-screen bg-stone-100 text-slate-900">
     <main class="auth-grid min-h-screen grid lg:grid-cols-2">
@@ -22,10 +28,13 @@
 
         <section class="auth-card-wrap flex items-center justify-center p-6">
             <div class="auth-card w-full max-w-md bg-white rounded-3xl shadow-xl border border-stone-200 p-8">
-                <div class="mb-8">
-                    <p class="section-label text-xs uppercase tracking-[0.25em] text-red-800 font-bold mb-3">Admin Portal</p>
-                    <h2 class="auth-display text-3xl font-black mb-2">Sign in</h2>
-                    <p class="content-note text-sm text-slate-500">Only authorized administrators can open the editable dashboard.</p>
+                <div class="mb-6 flex items-start justify-between gap-3">
+                    <div>
+                        <p class="section-label text-xs uppercase tracking-[0.25em] text-red-800 font-bold mb-3">Admin Portal</p>
+                        <h2 class="auth-display text-3xl font-black mb-2">Sign in</h2>
+                        <p class="content-note text-sm text-slate-500">Only authorized administrators can open the editable dashboard.</p>
+                    </div>
+                    <button id="loginThemeToggle" class="pill-button text-sm px-3 py-2" title="Toggle theme"><span id="loginThemeIcon" class="material-symbols-rounded text-base">dark_mode</span></button>
                 </div>
 
                 <form id="loginForm" class="space-y-4">
@@ -62,12 +71,35 @@
         const appId = typeof window !== 'undefined' && window.APP_ID ? window.APP_ID : 'evsu-nstp-attendance';
         const statusEl = document.getElementById('loginStatus');
         const form = document.getElementById('loginForm');
+        const themeKey = 'app_theme';
+
+        const applyTheme = (theme) => {
+            const next = theme === 'dark' ? 'dark' : 'light';
+            document.documentElement.dataset.theme = next;
+            localStorage.setItem(themeKey, next);
+            const icon = document.getElementById('loginThemeIcon');
+            if (icon) icon.innerText = next === 'dark' ? 'light_mode' : 'dark_mode';
+        };
+
+        const initThemeToggle = () => {
+            const btn = document.getElementById('loginThemeToggle');
+            if (btn) {
+                btn.addEventListener('click', () => {
+                    const current = document.documentElement.dataset.theme === 'dark' ? 'dark' : 'light';
+                    applyTheme(current === 'dark' ? 'light' : 'dark');
+                });
+            }
+            const saved = localStorage.getItem(themeKey) || 'light';
+            applyTheme(saved);
+        };
 
         const setStatus = (message, isError = false) => {
             statusEl.innerText = message;
             statusEl.classList.remove('text-slate-500', 'text-red-600', 'text-green-700');
             statusEl.classList.add(isError ? 'text-red-600' : 'text-slate-500');
         };
+
+        initThemeToggle();
 
         if (!firebaseConfig) {
             setStatus('Missing Firebase configuration. Update firebase-config.js first.', true);
@@ -127,6 +159,8 @@
                     setStatus(`Login failed: ${error.code || 'unknown-error'}`, true);
                 }
             });
+
+            initThemeToggle();
         }
     </script>
 </body>
