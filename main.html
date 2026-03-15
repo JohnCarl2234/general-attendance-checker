@@ -168,9 +168,33 @@
         import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
 
         // Global Variables
-        const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : null;
-        const appId = typeof __app_id !== 'undefined' ? __app_id : 'evsu-nstp-attendance';
+        const injectedFirebaseConfig =
+            typeof __firebase_config !== 'undefined'
+                ? __firebase_config
+                : (typeof window !== 'undefined' ? window.FIREBASE_CONFIG : undefined);
+
+        const firebaseConfig = (() => {
+            if (!injectedFirebaseConfig) return null;
+            try {
+                return typeof injectedFirebaseConfig === 'string'
+                    ? JSON.parse(injectedFirebaseConfig)
+                    : injectedFirebaseConfig;
+            } catch (err) {
+                console.error('Invalid Firebase config format:', err);
+                return null;
+            }
+        })();
+
+        const appId =
+            typeof __app_id !== 'undefined'
+                ? __app_id
+                : (typeof window !== 'undefined' && window.APP_ID ? window.APP_ID : 'evsu-nstp-attendance');
         const hasFirebaseConfig = !!firebaseConfig;
+        const SHARED_DOC_KEYS = {
+            attendance: 'daily_attendance',
+            contributions: 'daily_contributions',
+            categories: 'daily_categories'
+        };
 
         // Initialize Firebase only when config is available
         let app = null;
@@ -215,6 +239,8 @@
         };
 
         const saveLocalState = () => {
+            if (hasFirebaseConfig) return;
+
             try {
                 const attendanceByName = {};
                 const categoryByName = {};
@@ -235,6 +261,8 @@
         };
 
         const applyLocalState = () => {
+            if (hasFirebaseConfig) return;
+
             const savedAttendance = safeReadJson(LOCAL_STORAGE_KEYS.attendanceByName, {});
             const savedCategories = safeReadJson(LOCAL_STORAGE_KEYS.categoryByName, {});
             const savedContributions = safeReadJson(LOCAL_STORAGE_KEYS.contributionByName, {});
@@ -306,6 +334,10 @@
         const getStudentsByCategory = (category) => {
             if (category === 'All') return students;
             return students.filter(s => s.category === category);
+        };
+
+        const getSharedDocRef = (docKey) => {
+            return doc(db, 'artifacts', appId, 'public', 'data', docKey);
         };
 
         const renderBulkCategoryOptions = () => {
@@ -407,19 +439,28 @@
             if (!hasFirebaseConfig) return;
 
             try {
-                const docRef = doc(db, 'artifacts', appId, 'public', 'data', 'daily_attendance');
+                const docRef = getSharedDocRef(SHARED_DOC_KEYS.attendance);
                 await setDoc(docRef, payload, { merge: true });
             } catch (err) {
                 console.error('Bulk attendance update failed:', err);
             }
         };
 
-        window.setStudentCategory = (id, category) => {
+        window.setStudentCategory = async (id, category) => {
             const student = students.find(s => s.id === id);
             if (!student) return;
             student.category = normalizeCategory(category);
             saveLocalState();
             renderTable();
+
+            if (!hasFirebaseConfig) return;
+
+            try {
+                const categoryRef = getSharedDocRef(SHARED_DOC_KEYS.categories);
+                await setDoc(categoryRef, { [id]: student.category }, { merge: true });
+            } catch (err) {
+                console.error('Failed to save category update:', err);
+            }
         };
 
         const normalizeContributionEntry = (entry) => {
@@ -446,7 +487,7 @@
 
             noteSaveTimers[id] = setTimeout(async () => {
                 try {
-                    const noteRef = doc(db, 'artifacts', appId, 'public', 'data', 'daily_contributions');
+                    const noteRef = getSharedDocRef(SHARED_DOC_KEYS.contributions);
                     await setDoc(noteRef, { [id]: normalizeContributionEntry(contributionNotes[id]) }, { merge: true });
                 } catch (err) {
                     console.error('Failed to save contribution note:', err);
@@ -531,7 +572,7 @@
                 if (!user) return;
 
                 // Path: /artifacts/{appId}/public/data/attendance
-                const docRef = doc(db, 'artifacts', appId, 'public', 'data', 'daily_attendance');
+                const docRef = getSharedDocRef(SHARED_DOC_KEYS.attendance);
 
                 onSnapshot(docRef, (docSnap) => {
                     if (docSnap.exists()) {
@@ -541,7 +582,7 @@
                     }
                 }, (error) => console.error("Snapshot error:", error));
 
-                const noteRef = doc(db, 'artifacts', appId, 'public', 'data', 'daily_contributions');
+                const noteRef = getSharedDocRef(SHARED_DOC_KEYS.contributions);
                 onSnapshot(noteRef, (docSnap) => {
                     if (docSnap.exists()) {
                         contributionNotes = docSnap.data();
@@ -549,6 +590,23 @@
                     saveLocalState();
                     renderTable();
                 }, (error) => console.error("Contribution snapshot error:", error));
+
+                const categoryRef = getSharedDocRef(SHARED_DOC_KEYS.categories);
+                onSnapshot(categoryRef, (docSnap) => {
+                    if (docSnap.exists()) {
+                        const cloudCategories = docSnap.data();
+                        students = students.map(student => {
+                            const cloudCategory = cloudCategories[student.id];
+                            return {
+                                ...student,
+                                category: cloudCategory ? normalizeCategory(cloudCategory) : student.category
+                            };
+                        });
+                    }
+
+                    saveLocalState();
+                    renderTable();
+                }, (error) => console.error("Category snapshot error:", error));
             });
         }
 
@@ -562,7 +620,7 @@
             if (!hasFirebaseConfig) return;
             
             // Save to Firestore
-            const docRef = doc(db, 'artifacts', appId, 'public', 'data', 'daily_attendance');
+            const docRef = getSharedDocRef(SHARED_DOC_KEYS.attendance);
             await setDoc(docRef, attendanceData, { merge: true });
         };
 
