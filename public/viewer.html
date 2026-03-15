@@ -26,6 +26,10 @@
         </div>
     </nav>
 
+    <button id="viewerMobileTopbarToggle" class="mobile-topbar-toggle" aria-label="Toggle header">
+        <span id="viewerMobileTopbarToggleIcon" class="material-symbols-rounded">expand_more</span>
+    </button>
+
     <main class="content-frame max-w-7xl mx-auto px-4 py-6">
         <div class="control-surface rounded-xl shadow-sm border p-4 mb-6">
             <p class="section-label text-xs text-gray-500 font-bold uppercase mb-2">Record Viewer</p>
@@ -93,7 +97,7 @@
                 </tbody>
             </table>
         </div>
-</body>
+    </main>
 
     <div id="viewerQuickActions" class="floating-actions" aria-hidden="true">
         <button id="viewerSearchFab" class="action-btn" title="Search">
@@ -106,4 +110,5 @@
 
     <script src="./firebase-config.js"></script>
     <script type="module" src="./viewer.js"></script>
+</body>
 </html>

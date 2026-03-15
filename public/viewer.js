@@ -25,6 +25,59 @@ const initThemeToggle = () => {
     applyTheme(saved);
 };
 
+const initMobileTopbar = () => {
+    const toggleBtn = document.getElementById('viewerMobileTopbarToggle');
+    const toggleIcon = document.getElementById('viewerMobileTopbarToggleIcon');
+    if (!toggleBtn) return;
+
+    const mediaQuery = window.matchMedia('(max-width: 760px)');
+    let lastScroll = window.scrollY || 0;
+    let manualCollapsed = false;
+
+    const updateIcon = () => {
+        const hidden = document.body.classList.contains('mobile-topbar-hidden')
+            || document.body.classList.contains('mobile-topbar-collapsed');
+        if (toggleIcon) {
+            toggleIcon.innerText = hidden ? 'expand_less' : 'expand_more';
+        }
+    };
+
+    const setHidden = (hidden) => {
+        document.body.classList.toggle('mobile-topbar-hidden', hidden);
+        if (!hidden) {
+            document.body.classList.add('mobile-topbar-peek');
+            window.setTimeout(() => document.body.classList.remove('mobile-topbar-peek'), 320);
+        }
+        updateIcon();
+    };
+
+    const handleScroll = () => {
+        if (!mediaQuery.matches || manualCollapsed) return;
+        const current = window.scrollY || 0;
+        const shouldHide = current > 80 && current > lastScroll;
+        setHidden(shouldHide);
+        lastScroll = current;
+    };
+
+    toggleBtn.addEventListener('click', () => {
+        manualCollapsed = !manualCollapsed;
+        document.body.classList.toggle('mobile-topbar-collapsed', manualCollapsed);
+        if (!manualCollapsed) {
+            setHidden(false);
+        }
+        updateIcon();
+    });
+
+    mediaQuery.addEventListener('change', () => {
+        manualCollapsed = false;
+        document.body.classList.remove('mobile-topbar-hidden', 'mobile-topbar-collapsed');
+        updateIcon();
+    });
+
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    updateIcon();
+};
+
 const initQuickActions = () => {
     const quickActions = document.getElementById('viewerQuickActions');
     const searchFab = document.getElementById('viewerSearchFab');
@@ -167,6 +220,7 @@ const refreshRecordOptions = async (db) => {
 
 const init = async () => {
     initThemeToggle();
+    initMobileTopbar();
     initQuickActions();
     document.getElementById('searchBox').addEventListener('input', renderTable);
 
