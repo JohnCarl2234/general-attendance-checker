@@ -356,7 +356,8 @@
         const LOCAL_STORAGE_KEYS = {
             attendanceByName: `${appId}_attendance_by_name_v1`,
             categoryByName: `${appId}_category_by_name_v1`,
-            contributionByName: `${appId}_contribution_by_name_v1`
+            contributionByName: `${appId}_contribution_by_name_v1`,
+            studentsList: `${appId}_students_list_v1`
         };
 
         const safeReadJson = (key, fallback) => {
@@ -371,8 +372,6 @@
         };
 
         const saveLocalState = () => {
-            if (hasFirebaseConfig) return;
-
             try {
                 const attendanceByName = {};
                 const categoryByName = {};
@@ -387,20 +386,30 @@
                 localStorage.setItem(LOCAL_STORAGE_KEYS.attendanceByName, JSON.stringify(attendanceByName));
                 localStorage.setItem(LOCAL_STORAGE_KEYS.categoryByName, JSON.stringify(categoryByName));
                 localStorage.setItem(LOCAL_STORAGE_KEYS.contributionByName, JSON.stringify(contributionByName));
+                localStorage.setItem(LOCAL_STORAGE_KEYS.studentsList, JSON.stringify(students));
             } catch (err) {
                 console.warn('Failed writing localStorage state:', err);
             }
         };
 
         const applyLocalState = () => {
-            if (hasFirebaseConfig) return;
-
             const savedAttendance = safeReadJson(LOCAL_STORAGE_KEYS.attendanceByName, {});
             const savedCategories = safeReadJson(LOCAL_STORAGE_KEYS.categoryByName, {});
             const savedContributions = safeReadJson(LOCAL_STORAGE_KEYS.contributionByName, {});
+            const savedStudents = safeReadJson(LOCAL_STORAGE_KEYS.studentsList, []);
 
             const restoredAttendance = {};
             const restoredContributions = { ...contributionNotes };
+
+            if (Array.isArray(savedStudents) && savedStudents.length > 0) {
+                students = savedStudents
+                    .map((student, index) => ({
+                        id: Number.isFinite(student?.id) ? Number(student.id) : (index + 1),
+                        name: String(student?.name || '').trim(),
+                        category: normalizeCategory(student?.category || 'Team Members')
+                    }))
+                    .filter(student => student.name.length > 0);
+            }
 
             students.forEach(student => {
                 const savedCategory = savedCategories[student.name];
