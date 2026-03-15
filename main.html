@@ -183,7 +183,7 @@
     <!-- Firebase SDKs -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getFirestore, doc, setDoc, onSnapshot, getDoc, getDocs, collection, query, orderBy, limit } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { getFirestore, doc, setDoc, onSnapshot, getDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
         import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
 
         // Global Variables
@@ -210,7 +210,8 @@
                 : (typeof window !== 'undefined' && window.APP_ID ? window.APP_ID : 'evsu-nstp-attendance');
         const hasFirebaseConfig = !!firebaseConfig;
         const SHARED_DOC_KEYS = {
-            state: 'daily_state'
+            state: 'daily_state',
+            records: 'daily_records'
         };
 
         // Initialize Firebase only when config is available
@@ -392,12 +393,8 @@
             return doc(db, 'artifacts', appId, 'public_data', docKey);
         };
 
-        const getRecordDocRef = (recordId) => {
-            return doc(db, 'artifacts', appId, 'attendance_records', recordId);
-        };
-
-        const getRecordsCollectionRef = () => {
-            return collection(db, 'artifacts', appId, 'attendance_records');
+        const getRecordsDocRef = () => {
+            return getSharedDocRef(SHARED_DOC_KEYS.records);
         };
 
         const buildCloudPayload = () => {
@@ -482,17 +479,20 @@
             if (!select) return;
 
             try {
-                const q = query(getRecordsCollectionRef(), orderBy('savedAtMs', 'desc'), limit(100));
-                const snap = await getDocs(q);
+                const snap = await getDoc(getRecordsDocRef());
                 const options = [
                     `<option value="${LIVE_RECORD_OPTION}">Live Cloud State (Latest)</option>`,
                     '<option value="">Select saved record...</option>'
                 ];
 
-                snap.forEach((recordDoc) => {
-                    const data = recordDoc.data() || {};
-                    const label = data.savedAtLabel || recordDoc.id;
-                    options.push(`<option value="${recordDoc.id}">${escapeHtml(label)}</option>`);
+                const recordsMap = snap.exists() ? (snap.data().records || {}) : {};
+                const sortedRecords = Object.entries(recordsMap)
+                    .sort((a, b) => (b[1].savedAtMs || 0) - (a[1].savedAtMs || 0))
+                    .slice(0, 100);
+
+                sortedRecords.forEach(([recordId, data]) => {
+                    const label = data.savedAtLabel || recordId;
+                    options.push(`<option value="${recordId}">${escapeHtml(label)}</option>`);
                 });
 
                 select.innerHTML = options.join('');
@@ -509,14 +509,18 @@
             const savedAtMs = Date.now();
             const recordId = String(savedAtMs);
             const savedAtLabel = `${labelPrefix} - ${nowStamp()}`;
-            const recordRef = getRecordDocRef(recordId);
             const payload = {
                 ...buildCloudPayload(),
                 savedAtMs,
                 savedAtLabel
             };
 
-            await setDoc(recordRef, payload, { merge: true });
+            await setDoc(getRecordsDocRef(), {
+                records: {
+                    [recordId]: payload
+                }
+            }, { merge: true });
+
             return payload;
         };
 
@@ -573,18 +577,20 @@
             }
 
             try {
-                const recordRef = getRecordDocRef(recordId);
-                const snap = await getDoc(recordRef);
-                if (!snap.exists()) {
+                const recordsSnap = await getDoc(getRecordsDocRef());
+                const recordsMap = recordsSnap.exists() ? (recordsSnap.data().records || {}) : {};
+                const recordData = recordsMap[recordId];
+
+                if (!recordData) {
                     setCloudActionMsg('Selected record does not exist');
                     return;
                 }
 
                 isViewingRecord = true;
                 if (select) select.value = recordId;
-                applyCloudPayload(snap.data());
+                applyCloudPayload(recordData);
                 renderTable();
-                setCloudActionMsg(`Viewing record: ${snap.data().savedAtLabel || recordId}`);
+                setCloudActionMsg(`Viewing record: ${recordData.savedAtLabel || recordId}`);
                 setSyncMessage('Viewing historical record', 'warning');
             } catch (err) {
                 console.error('Record load failed:', err);

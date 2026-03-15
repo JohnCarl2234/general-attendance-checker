@@ -69,7 +69,7 @@
     <script src="./firebase-config.js"></script>
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getFirestore, doc, getDoc, onSnapshot, getDocs, collection, query, orderBy, limit } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { getFirestore, doc, getDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
         const injectedFirebaseConfig = typeof window !== 'undefined' ? window.FIREBASE_CONFIG : undefined;
         const appId = typeof window !== 'undefined' && window.APP_ID ? window.APP_ID : 'evsu-nstp-attendance';
@@ -84,7 +84,7 @@
             }
         })();
 
-        const SHARED_DOC_KEYS = { state: 'daily_state' };
+        const SHARED_DOC_KEYS = { state: 'daily_state', records: 'daily_records' };
 
         let students = [];
         let attendanceData = {};
@@ -113,8 +113,7 @@
         };
 
         const getStateRef = (db) => doc(db, 'artifacts', appId, 'public_data', SHARED_DOC_KEYS.state);
-        const getRecordDocRef = (db, recordId) => doc(db, 'artifacts', appId, 'attendance_records', recordId);
-        const getRecordsCollectionRef = (db) => collection(db, 'artifacts', appId, 'attendance_records');
+        const getRecordsDocRef = (db) => doc(db, 'artifacts', appId, 'public_data', SHARED_DOC_KEYS.records);
 
         const loadStudents = async () => {
             const response = await fetch(`names.txt?t=${Date.now()}`);
@@ -174,13 +173,18 @@
 
         const refreshRecordOptions = async (db) => {
             const select = document.getElementById('recordSelect');
-            const q = query(getRecordsCollectionRef(db), orderBy('savedAtMs', 'desc'), limit(100));
-            const snap = await getDocs(q);
+            const snap = await getDoc(getRecordsDocRef(db));
             const options = ['<option value="">Select saved record...</option>'];
-            snap.forEach((recordDoc) => {
-                const data = recordDoc.data() || {};
-                options.push(`<option value="${recordDoc.id}">${data.savedAtLabel || recordDoc.id}</option>`);
+
+            const recordsMap = snap.exists() ? (snap.data().records || {}) : {};
+            const sortedRecords = Object.entries(recordsMap)
+                .sort((a, b) => (b[1].savedAtMs || 0) - (a[1].savedAtMs || 0))
+                .slice(0, 100);
+
+            sortedRecords.forEach(([recordId, data]) => {
+                options.push(`<option value="${recordId}">${data.savedAtLabel || recordId}</option>`);
             });
+
             select.innerHTML = options.join('');
         };
 
@@ -206,16 +210,19 @@
                     return;
                 }
 
-                const snap = await getDoc(getRecordDocRef(db, recordId));
-                if (!snap.exists()) {
+                const recordsSnap = await getDoc(getRecordsDocRef(db));
+                const recordsMap = recordsSnap.exists() ? (recordsSnap.data().records || {}) : {};
+                const recordData = recordsMap[recordId];
+
+                if (!recordData) {
                     setActionMsg('Record not found');
                     return;
                 }
 
                 isViewingRecord = true;
-                applyPayload(snap.data());
+                applyPayload(recordData);
                 renderTable();
-                setActionMsg(`Viewing record: ${snap.data().savedAtLabel || recordId}`);
+                setActionMsg(`Viewing record: ${recordData.savedAtLabel || recordId}`);
                 setStatus('Viewing historical record');
             });
 
