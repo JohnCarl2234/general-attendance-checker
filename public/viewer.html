@@ -36,53 +36,74 @@
             </div>
             <p id="cloudActionMsg" class="content-note text-xs text-slate-500 mt-2"></p>
         </div>
+        <section class="oneui-hero mb-6">
+            <div class="oneui-hero-grid">
+                <div>
+                    <div class="oneui-chip mb-3">
+                        <span class="material-symbols-rounded">cloud_sync</span>
+                        <span id="updatedAt">Updated: --</span>
+                    </div>
+                    <h2 class="hero-title">Viewer Snapshot</h2>
+                    <p class="hero-subtitle">Live attendance visibility for the whole team.</p>
+                </div>
+                <div class="surface-card p-4 rounded-2xl shadow-sm">
+                    <p class="section-label mb-2">Search</p>
+                    <input type="text" id="searchBox" placeholder="Search student..." class="text-field w-full">
+                </div>
+            </div>
+        </section>
 
-        <script src="./firebase-config.js"></script>
-        <script type="module" src="./viewer.js"></script>
-                if (!recordId) {
-                    setActionMsg('Please choose a record first');
-                    return;
-                }
+        <div class="oneui-metrics mb-6">
+            <div class="metric-card p-4">
+                <div class="metric-icon"><span class="material-symbols-rounded">how_to_reg</span></div>
+                <p class="metric-label">Present</p>
+                <p id="presentCount" class="metric-value text-emerald-700">0</p>
+            </div>
+            <div class="metric-card p-4">
+                <div class="metric-icon"><span class="material-symbols-rounded">group</span></div>
+                <p class="metric-label">Total</p>
+                <p id="totalCount" class="metric-value">0</p>
+            </div>
+            <div class="metric-card p-4">
+                <div class="metric-icon"><span class="material-symbols-rounded">stacked_line_chart</span></div>
+                <p class="metric-label">Rate</p>
+                <p id="rateCount" class="metric-value text-blue-700">0%</p>
+            </div>
+        </div>
 
-                const recordsSnap = await getDoc(getRecordsDocRef(db));
-                const recordsMap = recordsSnap.exists() ? (recordsSnap.data().records || {}) : {};
-                const recordData = recordsMap[recordId];
-
-                if (!recordData) {
-                    setActionMsg('Record not found');
-                    return;
-                }
-
-                isViewingRecord = true;
-                applyPayload(recordData);
-                renderTable();
-                setActionMsg(`Viewing record: ${recordData.savedAtLabel || recordId}`);
-                setStatus('Viewing historical record');
-            });
-
-            document.getElementById('returnLiveBtn').addEventListener('click', async () => {
-                isViewingRecord = false;
-                const snap = await getDoc(getStateRef(db));
-                if (snap.exists()) {
-                    applyPayload(snap.data());
-                    renderTable();
-                }
-                setActionMsg('Returned to live mode');
-                setStatus('Cloud Sync Active');
-            });
-
-            onSnapshot(getStateRef(db), (snap) => {
-                if (!snap.exists() || isViewingRecord) return;
-                applyPayload(snap.data());
-                renderTable();
-                setStatus('Cloud Sync Active');
-            }, (err) => {
-                console.error(err);
-                setStatus(`Cloud read failed: ${err.code || 'unknown-error'}`, true);
-            });
-        };
-
-        init();
-    </script>
+        <div class="table-surface rounded-xl shadow-sm overflow-hidden border">
+            <div class="flex items-center justify-between px-6 py-3 border-b border-slate-200/70">
+                <div class="flex items-center gap-2">
+                    <span class="material-symbols-rounded text-blue-600">table</span>
+                    <p class="font-semibold text-slate-700">Attendance Table</p>
+                </div>
+                <span class="content-note text-xs text-slate-500">Viewer mode (read-only)</span>
+            </div>
+            <table class="data-table w-full text-left border-collapse">
+                <thead class="bg-gray-50">
+                    <tr>
+                        <th class="px-6 py-3 text-xs font-bold text-gray-400 uppercase">Name</th>
+                        <th class="px-6 py-3 text-xs font-bold text-gray-400 uppercase text-center">Assignment</th>
+                        <th class="px-6 py-3 text-xs font-bold text-gray-400 uppercase text-center">Status</th>
+                        <th class="px-6 py-3 text-xs font-bold text-gray-400 uppercase">Contribution Note</th>
+                    </tr>
+                </thead>
+                <tbody id="tableBody" class="divide-y">
+                    <!-- Data loads here -->
+                </tbody>
+            </table>
+        </div>
 </body>
+
+    <div id="viewerQuickActions" class="floating-actions" aria-hidden="true">
+        <button id="viewerSearchFab" class="action-btn" title="Search">
+            <span class="material-symbols-rounded">search</span>
+        </button>
+        <button id="viewerTopFab" class="action-btn" title="Back to top">
+            <span class="material-symbols-rounded">arrow_upward</span>
+        </button>
+    </div>
+
+    <script src="./firebase-config.js"></script>
+    <script type="module" src="./viewer.js"></script>
 </html>
