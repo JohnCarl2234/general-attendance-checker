@@ -1,0 +1,85 @@
+@media print {
+    @page {
+        size: A4;
+        margin: 12mm;
+    }
+
+    body {
+        background: #fff !important;
+        padding-bottom: 0 !important;
+        color: #111827 !important;
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+    }
+
+    * {
+        color: #111827 !important;
+    }
+
+    nav,
+    #searchBox,
+    #categoryFilters,
+    #bulkActions,
+    #cloudControls,
+    #memberManagement,
+    #exportBtn,
+    #viewerBtn,
+    #logoutBtn,
+    #stats,
+    #interactiveTableWrapper,
+    .oneui-hero,
+    .oneui-metrics,
+    .desktop-grid-tight {
+        display: none !important;
+    }
+
+    #printMeta {
+        display: block !important;
+    }
+
+    #printReport {
+        display: block !important;
+    }
+
+    #printMeta,
+    #printMeta * ,
+    #printReport,
+    #printReport * {
+        color: #111827 !important;
+        opacity: 1 !important;
+        text-shadow: none !important;
+    }
+
+    #printMeta h2 {
+        font-weight: 800 !important;
+    }
+
+    #printSummary {
+        font-weight: 700 !important;
+    }
+
+    .print-report-table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 12px;
+    }
+
+    .print-report-table th,
+    .print-report-table td {
+        border: 1px solid #cbd5e1;
+        padding: 7px 8px;
+        vertical-align: top;
+        text-align: left;
+        color: #111827 !important;
+    }
+
+    .print-report-table th {
+        background: #f1f5f9;
+        font-weight: 700;
+        color: #0f172a !important;
+    }
+
+    .print-report-table tr {
+        page-break-inside: avoid;
+    }
+}

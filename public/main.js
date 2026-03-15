@@ -1,0 +1,1130 @@
+import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+import { initializeFirestore, doc, setDoc, onSnapshot, getDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+
+// Global Variables
+const THEME_KEY = 'app_theme';
+
+const applyTheme = (theme) => {
+    const next = theme === 'dark' ? 'dark' : 'light';
+    document.documentElement.dataset.theme = next;
+    try { localStorage.setItem(THEME_KEY, next); } catch (err) { /* ignore */ }
+
+    const icon = document.getElementById('themeToggleIcon');
+    const label = document.getElementById('themeToggleLabel');
+    if (icon) icon.innerText = next === 'dark' ? 'light_mode' : 'dark_mode';
+    if (label) label.innerText = next === 'dark' ? 'Light' : 'Dark';
+};
+
+const initThemeFromStorage = () => {
+    const saved = typeof localStorage !== 'undefined' ? (localStorage.getItem(THEME_KEY) || 'light') : 'light';
+    applyTheme(saved);
+};
+
+const injectedFirebaseConfig =
+    typeof __firebase_config !== 'undefined'
+        ? __firebase_config
+        : (typeof window !== 'undefined' ? window.FIREBASE_CONFIG : undefined);
+
+const firebaseConfig = (() => {
+    if (!injectedFirebaseConfig) return null;
+    try {
+        return typeof injectedFirebaseConfig === 'string'
+            ? JSON.parse(injectedFirebaseConfig)
+            : injectedFirebaseConfig;
+    } catch (err) {
+        console.error('Invalid Firebase config format:', err);
+        return null;
+    }
+})();
+
+const appId =
+    typeof __app_id !== 'undefined'
+        ? __app_id
+        : (typeof window !== 'undefined' && window.APP_ID ? window.APP_ID : 'evsu-nstp-attendance');
+const hasFirebaseConfig = !!firebaseConfig;
+const SHARED_DOC_KEYS = {
+    state: 'daily_state',
+    records: 'daily_records'
+};
+
+// Initialize Firebase only when config is available
+let app = null;
+let db = null;
+let auth = null;
+
+if (hasFirebaseConfig) {
+    app = initializeApp(firebaseConfig);
+    db = initializeFirestore(app, {
+        experimentalAutoDetectLongPolling: true,
+        useFetchStreams: false
+    });
+    auth = getAuth(app);
+}
+
+// This is your list of 72 names. (The Python script can still update this!)
+let students = [
+    { id: 1, name: "Student Name 1", category: "Team Members" },
+    { id: 2, name: "Student Name 2", category: "Team Members" }
+    // ... truncated for brevity
+];
+
+let attendanceData = {}; // Stores { studentId: true/false }
+let contributionNotes = {}; // Stores { studentId: { status: string, details: string } }
+const noteSaveTimers = {};
+let cloudSaveTimer = null;
+let activeCategory = "All";
+let bulkCategory = "All";
+let isViewingRecord = false;
+let currentAdminUser = null;
+const LIVE_RECORD_OPTION = '__live__';
+const CATEGORY_OPTIONS = ["Core Group", "Asessment", "Team Members", "Proposal Drafters"];
+const CONTRIBUTION_PRESETS = ["", "Contributed", "Not Contributed", "Needs Follow-up"];
+const LOCAL_STORAGE_KEYS = {
+    attendanceByName: `${appId}_attendance_by_name_v1`,
+    categoryByName: `${appId}_category_by_name_v1`,
+    contributionByName: `${appId}_contribution_by_name_v1`,
+    studentsList: `${appId}_students_list_v1`
+};
+let cachedRecordsList = [];
+const selectedRecordIds = new Set();
+
+const isPlaceholderList = (list) => {
+    if (!Array.isArray(list) || list.length === 0) return false;
+    const trimmed = list.filter(s => (s?.name || '').trim().length > 0);
+    if (trimmed.length === 0) return true;
+    if (trimmed.length > 2) return false;
+    return trimmed.every(s => /^student\s*name\s*\d+/i.test(String(s.name || '')));
+};
+
+const safeReadJson = (key, fallback) => {
+    try {
+        const raw = localStorage.getItem(key);
+        if (!raw) return fallback;
+        return JSON.parse(raw);
+    } catch (err) {
+        console.warn('Failed reading localStorage key:', key, err);
+        return fallback;
+    }
+};
+
+const saveLocalState = () => {
+    try {
+        const attendanceByName = {};
+        const categoryByName = {};
+        const contributionByName = {};
+
+        students.forEach(student => {
+            attendanceByName[student.name] = !!attendanceData[student.id];
+            categoryByName[student.name] = student.category;
+            contributionByName[student.name] = normalizeContributionEntry(contributionNotes[student.id]);
+        });
+
+        localStorage.setItem(LOCAL_STORAGE_KEYS.attendanceByName, JSON.stringify(attendanceByName));
+        localStorage.setItem(LOCAL_STORAGE_KEYS.categoryByName, JSON.stringify(categoryByName));
+        localStorage.setItem(LOCAL_STORAGE_KEYS.contributionByName, JSON.stringify(contributionByName));
+        localStorage.setItem(LOCAL_STORAGE_KEYS.studentsList, JSON.stringify(students));
+    } catch (err) {
+        console.warn('Failed writing localStorage state:', err);
+    }
+};
+
+const applyLocalState = () => {
+    const savedAttendance = safeReadJson(LOCAL_STORAGE_KEYS.attendanceByName, {});
+    const savedCategories = safeReadJson(LOCAL_STORAGE_KEYS.categoryByName, {});
+    const savedContributions = safeReadJson(LOCAL_STORAGE_KEYS.contributionByName, {});
+    const savedStudents = safeReadJson(LOCAL_STORAGE_KEYS.studentsList, []);
+
+    const restoredAttendance = {};
+    const restoredContributions = { ...contributionNotes };
+
+    if (Array.isArray(savedStudents) && savedStudents.length > 0) {
+        students = savedStudents
+            .map((student, index) => ({
+                id: Number.isFinite(student?.id) ? Number(student.id) : (index + 1),
+                name: String(student?.name || '').trim(),
+                category: normalizeCategory(student?.category || 'Team Members')
+            }))
+            .filter(student => student.name.length > 0);
+    }
+
+    students.forEach(student => {
+        const savedCategory = savedCategories[student.name];
+        if (savedCategory) {
+            student.category = normalizeCategory(savedCategory);
+        }
+
+        if (typeof savedAttendance[student.name] === 'boolean') {
+            restoredAttendance[student.id] = savedAttendance[student.name];
+        }
+
+        if (savedContributions[student.name] !== undefined) {
+            restoredContributions[student.id] = normalizeContributionEntry(savedContributions[student.name]);
+        }
+    });
+
+    attendanceData = restoredAttendance;
+    contributionNotes = restoredContributions;
+};
+
+const normalizeCategory = (value) => {
+    const safe = (value || "").trim().toLowerCase();
+    if (safe === "core group") return "Core Group";
+    if (safe === "assessment" || safe === "asessment") return "Asessment";
+    if (safe === "team members" || safe === "team member") return "Team Members";
+    if (safe === "proposal drafters" || safe === "proposal drafter") return "Proposal Drafters";
+    return "Team Members";
+};
+
+const nowStamp = () => {
+    return new Date().toLocaleString('en-PH', {
+        year: 'numeric',
+        month: 'long',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit'
+    });
+};
+
+const updateDateTimeDisplay = () => {
+    document.getElementById('dateTimeDisplay').innerText = nowStamp();
+};
+
+const setSyncMessage = (message, tone = 'idle') => {
+    const statusMsg = document.getElementById('statusMsg');
+    const syncStatus = document.getElementById('syncStatus');
+
+    statusMsg.innerText = message;
+    statusMsg.classList.remove('text-yellow-400', 'text-amber-300', 'text-red-500', 'text-green-300');
+    syncStatus.classList.remove('text-gray-400', 'text-green-500', 'text-amber-400', 'text-red-500');
+
+    if (tone === 'online') {
+        statusMsg.classList.add('text-green-300');
+        syncStatus.classList.add('text-green-500');
+        return;
+    }
+
+    if (tone === 'warning') {
+        statusMsg.classList.add('text-amber-300');
+        syncStatus.classList.add('text-amber-400');
+        return;
+    }
+
+    if (tone === 'error') {
+        statusMsg.classList.add('text-red-500');
+        syncStatus.classList.add('text-red-500');
+        return;
+    }
+
+    statusMsg.classList.add('text-yellow-400');
+    syncStatus.classList.add('text-gray-400');
+};
+
+const escapeHtml = (value) => {
+    return String(value)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+};
+
+const getFilteredStudents = () => {
+    const query = document.getElementById('searchBox').value.toLowerCase();
+    return students.filter(s => {
+        const matchesSearch = s.name.toLowerCase().includes(query);
+        const matchesCategory = activeCategory === 'All' || s.category === activeCategory;
+        return matchesSearch && matchesCategory;
+    });
+};
+
+const getStudentsByCategory = (category) => {
+    if (category === 'All') return students;
+    return students.filter(s => s.category === category);
+};
+
+const getSharedDocRef = (docKey) => {
+    // Firestore document paths must alternate collection/doc segments.
+    // This stores shared docs at: /artifacts/{appId}/public_data/{docKey}
+    return doc(db, 'artifacts', appId, 'public_data', docKey);
+};
+
+const getRecordsDocRef = () => {
+    return getSharedDocRef(SHARED_DOC_KEYS.records);
+};
+
+const getAdminGateDocRef = () => {
+    return doc(db, 'artifacts', appId, 'private_data', 'admin_gate');
+};
+
+const verifyAdminAccess = async () => {
+    try {
+        // Admins can read private_data; non-admin users are denied by rules.
+        await getDoc(getAdminGateDocRef());
+        return true;
+    } catch (err) {
+        if (err?.code === 'permission-denied') {
+            return false;
+        }
+        throw err;
+    }
+};
+
+const buildCloudPayload = () => {
+    pruneStateToKnownStudents();
+
+    const categories = {};
+    students.forEach(student => {
+        categories[student.id] = student.category;
+    });
+
+    const studentsSnapshot = students.map(student => ({
+        id: student.id,
+        name: student.name,
+        category: student.category
+    }));
+
+    return {
+        students: studentsSnapshot,
+        attendanceData,
+        contributionNotes,
+        categories,
+        studentCount: students.length,
+        updatedAtIso: new Date().toISOString()
+    };
+};
+
+const applyCloudPayload = (payload) => {
+    if (!payload || typeof payload !== 'object') return;
+
+    if (Array.isArray(payload.students) && payload.students.length > 0) {
+        const incoming = payload.students
+            .map((student, index) => ({
+                id: Number.isFinite(student?.id) ? Number(student.id) : (index + 1),
+                name: String(student?.name || '').trim(),
+                category: normalizeCategory(student?.category || 'Team Members')
+            }))
+            .filter(student => student.name.length > 0);
+
+        if (!isPlaceholderList(incoming)) {
+            students = incoming;
+        } else if (isPlaceholderList(students)) {
+            students = [];
+        }
+    }
+
+    if (payload.attendanceData && typeof payload.attendanceData === 'object') {
+        attendanceData = payload.attendanceData;
+    }
+
+    if (payload.contributionNotes && typeof payload.contributionNotes === 'object') {
+        contributionNotes = payload.contributionNotes;
+    }
+
+    if (payload.categories && typeof payload.categories === 'object') {
+        students = students.map(student => ({
+            ...student,
+            category: payload.categories[student.id]
+                ? normalizeCategory(payload.categories[student.id])
+                : student.category
+        }));
+    }
+
+    pruneStateToKnownStudents();
+};
+
+const setCloudActionMsg = (message) => {
+    const el = document.getElementById('cloudActionMsg');
+    if (el) el.innerText = message;
+};
+
+const redirectToLogin = (reason = '') => {
+    const target = reason ? `./login.html?reason=${encodeURIComponent(reason)}` : './login.html';
+    window.location.replace(target);
+};
+
+window.logoutAdmin = async () => {
+    if (!auth) {
+        redirectToLogin('signed-out');
+        return;
+    }
+
+    try {
+        await signOut(auth);
+    } finally {
+        redirectToLogin('signed-out');
+    }
+};
+
+const saveCompleteStateToCloud = async (source = 'manual') => {
+    if (!hasFirebaseConfig) {
+        setCloudActionMsg('Cloud save skipped: no Firebase config');
+        return;
+    }
+
+    if (isViewingRecord && source !== 'manual') {
+        return;
+    }
+
+    try {
+        const stateRef = getSharedDocRef(SHARED_DOC_KEYS.state);
+        await setDoc(stateRef, buildCloudPayload(), { merge: true });
+        if (source === 'manual') {
+            setCloudActionMsg(`Saved to cloud at ${nowStamp()}`);
+        }
+    } catch (err) {
+        console.error('Cloud state save failed:', err);
+        setSyncMessage(`Cloud save failed: ${err.code || 'unknown-error'}`, 'error');
+        setCloudActionMsg(`Cloud save failed: ${err.code || 'unknown-error'}`);
+    }
+};
+
+const scheduleCloudStateSave = () => {
+    if (!hasFirebaseConfig || isViewingRecord) return;
+
+    if (cloudSaveTimer) {
+        clearTimeout(cloudSaveTimer);
+    }
+
+    cloudSaveTimer = setTimeout(() => {
+        saveCompleteStateToCloud('auto');
+    }, 350);
+};
+
+const refreshRecordOptions = async () => {
+    if (!hasFirebaseConfig) return;
+    const select = document.getElementById('recordSelect');
+    if (!select) return;
+
+    try {
+        const snap = await getDoc(getRecordsDocRef());
+        const options = [
+            `<option value="${LIVE_RECORD_OPTION}">Live Cloud State (Latest)</option>`,
+            '<option value="">Select saved record...</option>'
+        ];
+
+        const recordsMap = snap.exists() ? (snap.data().records || {}) : {};
+        const sortedRecords = Object.entries(recordsMap)
+            .sort((a, b) => (b[1].savedAtMs || 0) - (a[1].savedAtMs || 0))
+            .slice(0, 100);
+
+        cachedRecordsList = sortedRecords.map(([recordId, data]) => ({
+            id: recordId,
+            label: data.savedAtLabel || recordId,
+            savedAtMs: data.savedAtMs || 0
+        }));
+
+        sortedRecords.forEach(([recordId, data]) => {
+            const label = data.savedAtLabel || recordId;
+            options.push(`<option value="${recordId}">${escapeHtml(label)}</option>`);
+        });
+
+        select.innerHTML = options.join('');
+        if (!isViewingRecord) {
+            select.value = LIVE_RECORD_OPTION;
+        }
+
+        renderRecordRemovalList();
+    } catch (err) {
+        console.error('Failed loading record list:', err);
+        setCloudActionMsg(`Record list failed: ${err.code || 'unknown-error'}`);
+    }
+};
+
+const renderRecordRemovalList = () => {
+    const container = document.getElementById('recordRemovalList');
+    if (!container) return;
+
+    if (!hasFirebaseConfig) {
+        container.innerHTML = '<p class="content-note">Enable Firebase to manage saved records.</p>';
+        return;
+    }
+
+    if (!cachedRecordsList.length) {
+        container.innerHTML = '<p class="content-note">No saved records available.</p>';
+        return;
+    }
+
+    container.innerHTML = cachedRecordsList.map(record => {
+        const checked = selectedRecordIds.has(record.id) ? 'checked' : '';
+        return `
+            <label class="flex items-center gap-2 text-sm text-slate-700">
+                <input type="checkbox" value="${record.id}" ${checked} onchange="toggleRecordSelection(this.value, this.checked)" />
+                <span>${escapeHtml(record.label)}</span>
+            </label>
+        `;
+    }).join('');
+};
+
+window.toggleRecordSelection = (recordId, isChecked) => {
+    if (!recordId) return;
+    if (isChecked) {
+        selectedRecordIds.add(recordId);
+    } else {
+        selectedRecordIds.delete(recordId);
+    }
+};
+
+window.deleteSelectedRecords = async () => {
+    const msgEl = document.getElementById('recordRemovalMsg');
+    if (!hasFirebaseConfig) {
+        if (msgEl) msgEl.innerText = 'Enable Firebase to delete records.';
+        return;
+    }
+
+    if (selectedRecordIds.size === 0) {
+        if (msgEl) msgEl.innerText = 'Select at least one record to delete.';
+        return;
+    }
+
+    try {
+        const snap = await getDoc(getRecordsDocRef());
+        const recordsMap = snap.exists() ? (snap.data().records || {}) : {};
+
+        selectedRecordIds.forEach(id => {
+            delete recordsMap[id];
+        });
+
+        await setDoc(getRecordsDocRef(), { records: recordsMap }, { merge: false });
+        selectedRecordIds.clear();
+        if (msgEl) msgEl.innerText = 'Selected records deleted.';
+        await refreshRecordOptions();
+    } catch (err) {
+        console.error('Delete records failed:', err);
+        if (msgEl) msgEl.innerText = `Delete failed: ${err.code || 'unknown-error'}`;
+    }
+};
+
+const createHistoricalRecord = async (labelPrefix = 'Record') => {
+    const savedAtMs = Date.now();
+    const recordId = String(savedAtMs);
+    const savedAtLabel = `${labelPrefix} - ${nowStamp()}`;
+    const payload = {
+        ...buildCloudPayload(),
+        savedAtMs,
+        savedAtLabel
+    };
+
+    await setDoc(getRecordsDocRef(), {
+        records: {
+            [recordId]: payload
+        }
+    }, { merge: true });
+
+    return payload;
+};
+
+window.saveAllToCloud = async () => {
+    if (!hasFirebaseConfig) {
+        setCloudActionMsg('Cloud save skipped: no Firebase config');
+        return;
+    }
+
+    try {
+        await saveCompleteStateToCloud('manual');
+        const payload = await createHistoricalRecord('Save All');
+        setCloudActionMsg(`Saved to cloud and archived: ${payload.savedAtLabel}`);
+        await refreshRecordOptions();
+    } catch (err) {
+        console.error('Save all failed:', err);
+        setCloudActionMsg(`Save all failed: ${err.code || 'unknown-error'}`);
+    }
+};
+
+window.saveAsRecord = async () => {
+    if (!hasFirebaseConfig) {
+        setCloudActionMsg('Cloud record save skipped: no Firebase config');
+        return;
+    }
+
+    try {
+        await saveCompleteStateToCloud('auto');
+        const payload = await createHistoricalRecord('Record');
+        setCloudActionMsg(`Record saved at ${payload.savedAtLabel}`);
+        await refreshRecordOptions();
+    } catch (err) {
+        console.error('Record save failed:', err);
+        setCloudActionMsg(`Record save failed: ${err.code || 'unknown-error'}`);
+    }
+};
+
+window.loadSelectedRecord = async () => {
+    if (!hasFirebaseConfig) {
+        setCloudActionMsg('Record load skipped: no Firebase config');
+        return;
+    }
+
+    const select = document.getElementById('recordSelect');
+    const recordId = select ? select.value : '';
+    if (!recordId) {
+        setCloudActionMsg('Please select a saved record first');
+        return;
+    }
+
+    if (recordId === LIVE_RECORD_OPTION) {
+        await returnToLiveMode();
+        return;
+    }
+
+    try {
+        const recordsSnap = await getDoc(getRecordsDocRef());
+        const recordsMap = recordsSnap.exists() ? (recordsSnap.data().records || {}) : {};
+        const recordData = recordsMap[recordId];
+
+        if (!recordData) {
+            setCloudActionMsg('Selected record does not exist');
+            return;
+        }
+
+        isViewingRecord = true;
+        if (select) select.value = recordId;
+        applyCloudPayload(recordData);
+        renderTable();
+        setCloudActionMsg(`Viewing record: ${recordData.savedAtLabel || recordId}`);
+        setSyncMessage('Viewing historical record', 'warning');
+    } catch (err) {
+        console.error('Record load failed:', err);
+        setCloudActionMsg(`Record load failed: ${err.code || 'unknown-error'}`);
+    }
+};
+
+window.returnToLiveMode = async () => {
+    if (!hasFirebaseConfig) {
+        isViewingRecord = false;
+        setCloudActionMsg('Live mode (local)');
+        return;
+    }
+
+    try {
+        const stateRef = getSharedDocRef(SHARED_DOC_KEYS.state);
+        const snap = await getDoc(stateRef);
+        if (snap.exists()) {
+            applyCloudPayload(snap.data());
+        }
+
+        isViewingRecord = false;
+        renderTable();
+        setCloudActionMsg('Returned to live cloud state');
+        setSyncMessage('Cloud Sync Active', 'online');
+        const select = document.getElementById('recordSelect');
+        if (select) select.value = LIVE_RECORD_OPTION;
+    } catch (err) {
+        console.error('Return to live mode failed:', err);
+        setCloudActionMsg(`Return failed: ${err.code || 'unknown-error'}`);
+    }
+};
+
+const startCloudSync = () => {
+    const stateRef = getSharedDocRef(SHARED_DOC_KEYS.state);
+
+    onSnapshot(stateRef, (docSnap) => {
+        if (docSnap.exists() && !isViewingRecord) {
+            applyCloudPayload(docSnap.data());
+        }
+        saveLocalState();
+        renderTable();
+        setSyncMessage('Cloud Sync Active', 'online');
+    }, (error) => {
+        console.error('Cloud state snapshot error:', error);
+        setSyncMessage(`Cloud read failed: ${error.code || 'unknown-error'}`, 'error');
+    });
+};
+
+const renderBulkCategoryOptions = () => {
+    const select = document.getElementById('bulkCategorySelect');
+    if (!select) return;
+
+    const options = ['All', ...CATEGORY_OPTIONS];
+    select.innerHTML = options
+        .map(option => `<option value="${option}" ${bulkCategory === option ? 'selected' : ''}>${option}</option>`)
+        .join('');
+
+    const newMemberCat = document.getElementById('newMemberCategory');
+    if (newMemberCat) {
+        const currentVal = newMemberCat.value || CATEGORY_OPTIONS[0];
+        newMemberCat.innerHTML = CATEGORY_OPTIONS
+            .map(option => `<option value="${option}" ${option === currentVal ? 'selected' : ''}>${option}</option>`)
+            .join('');
+    }
+};
+
+const buildPrintTable = () => {
+    const filtered = getFilteredStudents();
+    const present = filtered.filter(s => !!attendanceData[s.id]).length;
+    const absent = filtered.length - present;
+    const rate = filtered.length ? ((present / filtered.length) * 100).toFixed(1) : '0.0';
+
+    document.getElementById('printSummary').innerText = `Records: ${filtered.length} | Present: ${present} | Absent: ${absent} | Rate: ${rate}%`;
+
+    const rows = filtered.map((s, index) => {
+        const noteEntry = normalizeContributionEntry(contributionNotes[s.id]);
+        const attendanceLabel = attendanceData[s.id] ? 'Present' : 'Absent';
+        const contributionStatus = noteEntry.status || '-';
+        const contributionDetails = noteEntry.details || '-';
+
+        return `
+            <tr>
+                <td>${index + 1}</td>
+                <td>${escapeHtml(s.name)}</td>
+                <td>${escapeHtml(s.category || 'Team Members')}</td>
+                <td>${attendanceLabel}</td>
+                <td>${escapeHtml(contributionStatus)}</td>
+                <td>${escapeHtml(contributionDetails)}</td>
+            </tr>
+        `;
+    }).join('');
+
+    document.getElementById('printTableBody').innerHTML = rows || `
+        <tr>
+            <td colspan="6">No records available for current filters.</td>
+        </tr>
+    `;
+};
+
+window.exportPdf = () => {
+    document.getElementById('printTitle').innerText = 'COMMUNITY PROJECT ATTENDANCE MONITOR';
+    document.getElementById('printDateTime').innerText = `Exported: ${nowStamp()}`;
+    document.getElementById('printCategory').innerText = `Category: ${activeCategory}`;
+    buildPrintTable();
+    window.print();
+};
+
+window.setCategoryFilter = (category) => {
+    activeCategory = category;
+    document.querySelectorAll('.category-filter').forEach(btn => {
+        const isActive = btn.dataset.category === category;
+        btn.dataset.active = isActive ? 'true' : 'false';
+        btn.classList.toggle('bg-red-900', isActive);
+        btn.classList.toggle('text-white', isActive);
+        btn.classList.toggle('border-red-900', isActive);
+        btn.classList.toggle('bg-white', !isActive);
+        btn.classList.toggle('text-slate-700', !isActive);
+        btn.classList.toggle('border-slate-300', !isActive);
+    });
+    renderTable();
+};
+
+window.setBulkCategory = (category) => {
+    bulkCategory = category;
+    const targetCount = getStudentsByCategory(bulkCategory).length;
+    document.getElementById('bulkActionMsg').innerText = `${targetCount} student(s) selected`;
+};
+
+window.bulkMarkAttendance = async (isPresent) => {
+    const targets = getStudentsByCategory(bulkCategory);
+    if (targets.length === 0) {
+        document.getElementById('bulkActionMsg').innerText = 'No students in selected category';
+        return;
+    }
+
+    if (bulkCategory === 'All') {
+        const actionLabel = isPresent ? 'Present' : 'Absent';
+        const confirmed = window.confirm(`Apply '${actionLabel}' to all ${targets.length} students?`);
+        if (!confirmed) {
+            document.getElementById('bulkActionMsg').innerText = 'Bulk action cancelled';
+            return;
+        }
+    }
+
+    targets.forEach(student => {
+        attendanceData[student.id] = isPresent;
+    });
+
+    saveLocalState();
+    renderTable();
+    document.getElementById('bulkActionMsg').innerText = `${targets.length} student(s) marked ${isPresent ? 'Present' : 'Absent'}`;
+
+    if (!hasFirebaseConfig) return;
+    await saveCompleteStateToCloud('auto');
+};
+
+window.setStudentCategory = async (id, category) => {
+    const student = students.find(s => s.id === id);
+    if (!student) return;
+    student.category = normalizeCategory(category);
+    saveLocalState();
+    renderTable();
+
+    if (!hasFirebaseConfig) return;
+    scheduleCloudStateSave();
+};
+
+const normalizeContributionEntry = (entry) => {
+    if (typeof entry === 'string') {
+        return { status: '', details: entry };
+    }
+
+    if (!entry || typeof entry !== 'object') {
+        return { status: '', details: '' };
+    }
+
+    return {
+        status: typeof entry.status === 'string' ? entry.status : '',
+        details: typeof entry.details === 'string' ? entry.details : ''
+    };
+};
+
+const saveContributionDebounced = (id) => {
+    if (noteSaveTimers[id]) {
+        clearTimeout(noteSaveTimers[id]);
+    }
+
+    if (!hasFirebaseConfig) return;
+
+    noteSaveTimers[id] = setTimeout(() => {
+        scheduleCloudStateSave();
+    }, 500);
+};
+
+window.setContributionStatus = (id, status) => {
+    const current = normalizeContributionEntry(contributionNotes[id]);
+    contributionNotes[id] = { ...current, status };
+    saveLocalState();
+    saveContributionDebounced(id);
+};
+
+window.setContributionDetail = (id, details) => {
+    const current = normalizeContributionEntry(contributionNotes[id]);
+    contributionNotes[id] = { ...current, details };
+    saveLocalState();
+    saveContributionDebounced(id);
+};
+
+const pruneStateToKnownStudents = () => {
+    const idSet = new Set(students.map(s => Number(s.id)));
+    attendanceData = Object.fromEntries(
+        Object.entries(attendanceData).filter(([id, val]) => idSet.has(Number(id)))
+    );
+    contributionNotes = Object.fromEntries(
+        Object.entries(contributionNotes).filter(([id]) => idSet.has(Number(id)))
+    );
+};
+
+const nextStudentId = () =>
+    students.length > 0 ? Math.max(...students.map(s => s.id)) + 1 : 1;
+
+const setMemberActionMsg = (message) => {
+    const el = document.getElementById('memberActionMsg');
+    if (el) el.innerText = message;
+};
+
+window.addStudent = async () => {
+    const nameInput = document.getElementById('newMemberName');
+    const categorySelect = document.getElementById('newMemberCategory');
+    const name = (nameInput?.value || '').trim();
+    const category = categorySelect?.value || 'Team Members';
+
+    if (!name) {
+        setMemberActionMsg('Please enter a name before adding.');
+        return;
+    }
+
+    if (students.find(s => s.name.toLowerCase() === name.toLowerCase())) {
+        setMemberActionMsg(`"${name}" is already in the list.`);
+        return;
+    }
+
+    const id = nextStudentId();
+    students = [...students, { id, name, category }];
+    if (nameInput) nameInput.value = '';
+
+    renderBulkCategoryOptions();
+    setBulkCategory(bulkCategory);
+    renderTable();
+    setMemberActionMsg(`"${name}" added as ${category}.`);
+    saveLocalState();
+
+    if (!hasFirebaseConfig) return;
+    await saveCompleteStateToCloud('auto');
+};
+
+window.removeStudent = async (id) => {
+    const student = students.find(s => s.id === id);
+    if (!student) return;
+
+    const confirmed = window.confirm(`Remove "${student.name}" from the list? This action will save to cloud.`);
+    if (!confirmed) return;
+
+    students = students.filter(s => s.id !== id);
+    delete attendanceData[id];
+    delete contributionNotes[id];
+
+    renderBulkCategoryOptions();
+    setBulkCategory(bulkCategory);
+    renderTable();
+    setMemberActionMsg(`"${student.name}" has been removed.`);
+    saveLocalState();
+
+    if (!hasFirebaseConfig) return;
+    await saveCompleteStateToCloud('auto');
+};
+
+window.renameStudent = async (id, newName) => {
+    const name = (newName || '').trim();
+    if (!name) return;
+
+    const student = students.find(s => s.id === id);
+    if (!student || student.name === name) return;
+
+    student.name = name;
+    setMemberActionMsg(`Renamed to "${name}".`);
+    saveLocalState();
+
+    if (!hasFirebaseConfig) return;
+    scheduleCloudStateSave();
+};
+
+window.triggerCsvImport = () => {
+    const input = document.getElementById('csvImportInput');
+    if (input) input.click();
+};
+
+const splitCsvLine = (line) => {
+    const matches = line.match(/"(?:[^"]|"")*"|[^,]+/g) || [];
+    return matches.map(field => {
+        const trimmed = field.trim();
+        if (trimmed.startsWith('"') && trimmed.endsWith('"')) {
+            return trimmed.slice(1, -1).replace(/""/g, '"').trim();
+        }
+        return trimmed;
+    });
+};
+
+const parseCsvLines = (text) => {
+    return text
+        .split(/\r?\n/)
+        .map(line => line.trim())
+        .filter(line => line.length > 0)
+        .map(line => {
+            const parts = splitCsvLine(line).filter(Boolean);
+            if (parts.length < 2) return null;
+            const categoryRaw = parts.pop();
+            const name = parts.join(', ').trim();
+            const category = normalizeCategory(categoryRaw || 'Team Members');
+            if (!name) return null;
+            return { name, category };
+        })
+        .filter(Boolean);
+};
+
+const upsertStudentsFromCsv = (rows) => {
+    let added = 0;
+    let updated = 0;
+    const nameIndex = new Map();
+    students.forEach(s => nameIndex.set(s.name.toLowerCase(), s));
+
+    rows.forEach(row => {
+        const key = row.name.toLowerCase();
+        const existing = nameIndex.get(key);
+        if (existing) {
+            existing.category = row.category;
+            updated += 1;
+        } else {
+            const id = nextStudentId();
+            const student = { id, name: row.name, category: row.category };
+            students = [...students, student];
+            nameIndex.set(key, student);
+            added += 1;
+        }
+    });
+
+    renderBulkCategoryOptions();
+    setBulkCategory(bulkCategory);
+    renderTable();
+    saveLocalState();
+
+    if (hasFirebaseConfig) {
+        scheduleCloudStateSave();
+    }
+
+    setMemberActionMsg(`CSV import: ${added} added, ${updated} updated.`);
+};
+
+const attachCsvListener = () => {
+    const input = document.getElementById('csvImportInput');
+    if (!input) return;
+    input.addEventListener('change', async (e) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+        try {
+            const text = await file.text();
+            const rows = parseCsvLines(text);
+            if (!rows.length) {
+                setMemberActionMsg('CSV import: no valid rows found.');
+            } else {
+                upsertStudentsFromCsv(rows);
+            }
+        } catch (err) {
+            console.error('CSV import failed:', err);
+            setMemberActionMsg('CSV import failed. Please check the file.');
+        } finally {
+            e.target.value = '';
+        }
+    });
+};
+
+// Rule 3: Auth Before Queries
+const init = async () => {
+    document.body.style.visibility = 'hidden';
+    initThemeFromStorage();
+    applyLocalState();
+    if (isPlaceholderList(students)) {
+        students = [];
+    }
+    renderBulkCategoryOptions();
+    setBulkCategory(bulkCategory);
+    renderTable();
+    updateDateTimeDisplay();
+    setInterval(updateDateTimeDisplay, 1000);
+    attachCsvListener();
+
+    if (!hasFirebaseConfig) {
+        setSyncMessage('Local Mode (No Cloud Config)', 'warning');
+        setCloudActionMsg('Cloud disabled. Configure Firebase to enable shared persistence.');
+        document.body.style.visibility = 'visible';
+        return;
+    }
+
+    const initialUser = await new Promise((resolve) => {
+        const unsubscribe = onAuthStateChanged(auth, (user) => {
+            unsubscribe();
+            resolve(user);
+        });
+    });
+
+    if (!initialUser) {
+        redirectToLogin('login-required');
+        return;
+    }
+
+    try {
+        const isAdmin = await verifyAdminAccess();
+        if (!isAdmin) {
+            await signOut(auth);
+            redirectToLogin('unauthorized');
+            return;
+        }
+    } catch (error) {
+        console.error('Admin authorization check failed:', error);
+        await signOut(auth);
+        redirectToLogin('auth-check-failed');
+        return;
+    }
+
+    currentAdminUser = initialUser;
+    document.body.style.visibility = 'visible';
+
+    onAuthStateChanged(auth, async (user) => {
+        if (!user) {
+            redirectToLogin('session-expired');
+            return;
+        }
+
+        try {
+            const isAdmin = await verifyAdminAccess();
+            if (!isAdmin) {
+                signOut(auth).finally(() => redirectToLogin('unauthorized'));
+                return;
+            }
+        } catch (error) {
+            console.error('Admin authorization re-check failed:', error);
+            signOut(auth).finally(() => redirectToLogin('auth-check-failed'));
+            return;
+        }
+
+        currentAdminUser = user;
+    });
+
+    startCloudSync();
+    await refreshRecordOptions();
+    await saveCompleteStateToCloud('auto');
+    setSyncMessage('Cloud Sync Active', 'online');
+};
+
+document.addEventListener('DOMContentLoaded', () => {
+    const toggle = document.getElementById('themeToggle');
+    if (toggle) {
+        toggle.addEventListener('click', () => {
+            const current = document.documentElement.dataset.theme === 'dark' ? 'dark' : 'light';
+            applyTheme(current === 'dark' ? 'light' : 'dark');
+        });
+    }
+});
+
+window.toggleAttendance = async (id) => {
+    const currentStatus = !!attendanceData[id];
+    attendanceData[id] = !currentStatus;
+
+    saveLocalState();
+    renderTable();
+
+    if (!hasFirebaseConfig) return;
+
+    await saveCompleteStateToCloud('auto');
+};
+
+window.renderTable = () => {
+    pruneStateToKnownStudents();
+
+    const filtered = getFilteredStudents();
+    const tbody = document.getElementById('tableBody');
+
+    tbody.innerHTML = filtered.map(s => {
+        const isPresent = !!attendanceData[s.id];
+        const noteEntry = normalizeContributionEntry(contributionNotes[s.id]);
+        return `
+            <tr>
+                <td data-label="Name" class="px-6 py-4">
+                    <input
+                        type="text"
+                        value="${escapeHtml(s.name)}"
+                        onchange="renameStudent(${s.id}, this.value)"
+                        class="text-field w-full px-2 py-1 rounded border border-transparent bg-transparent text-sm font-medium hover:border-slate-300 focus:bg-white focus:border-red-400 focus:outline-none"
+                    />
+                </td>
+                <td data-label="Assignment" class="px-6 py-4 text-center">
+                    <select onchange="setStudentCategory(${s.id}, this.value)" class="select-field px-3 py-2 rounded-lg border bg-white text-sm font-medium">
+                        ${CATEGORY_OPTIONS.map(option => `<option value="${option}" ${s.category === option ? 'selected' : ''}>${option}</option>`).join('')}
+                    </select>
+                </td>
+                <td data-label="Status" class="px-6 py-4 text-center">
+                    <button onclick="toggleAttendance(${s.id})" 
+                        class="status-chip ${isPresent ? 'present' : 'absent'} px-6 py-2 rounded-full text-[10px] font-bold uppercase transition-all border-2">
+                        ${isPresent ? 'Present' : 'Absent'}
+                    </button>
+                </td>
+                <td data-label="Contribution Note" class="px-6 py-4">
+                    <div class="flex flex-col gap-2">
+                        <select onchange="setContributionStatus(${s.id}, this.value)" class="select-field w-full px-3 py-2 rounded-lg border bg-white text-sm font-medium">
+                            ${CONTRIBUTION_PRESETS.map(option => `<option value="${option}" ${noteEntry.status === option ? 'selected' : ''}>${option || 'Select preset status'}</option>`).join('')}
+                        </select>
+                        <input
+                            type="text"
+                            value="${escapeHtml(noteEntry.details)}"
+                            oninput="setContributionDetail(${s.id}, this.value)"
+                            placeholder="Type detailed contribution note..."
+                            class="text-field w-full px-3 py-2 rounded-lg border bg-white text-sm"
+                        />
+                    </div>
+                </td>
+                <td data-label="Actions" class="px-6 py-4 text-center">
+                    <button onclick="removeStudent(${s.id})"
+                        class="pill-button px-3 py-1 rounded-full text-xs font-bold text-red-700 border border-red-200 hover:bg-red-50 transition-colors">
+                        Remove
+                    </button>
+                </td>
+            </tr>
+        `;
+    }).join('');
+
+    // Update stats
+    const total = students.length;
+    const present = students.filter(s => !!attendanceData[s.id]).length;
+    const rate = total ? `${((present / total) * 100).toFixed(1)}%` : '0%';
+    document.getElementById('presentCount').innerText = present;
+    document.getElementById('totalCount').innerText = total;
+    document.getElementById('rateCount').innerText = rate;
+};
+
+init();
