@@ -550,9 +550,22 @@ select:focus-visible {
 [data-theme="dark"] .text-slate-600,
 [data-theme="dark"] .text-slate-700,
 [data-theme="dark"] .text-slate-500,
+[data-theme="dark"] .text-slate-400,
 [data-theme="dark"] .text-gray-400,
-[data-theme="dark"] .text-gray-500 {
+[data-theme="dark"] .text-gray-500,
+[data-theme="dark"] .text-gray-600,
+[data-theme="dark"] .text-gray-700 {
     color: #cdd6e4 !important;
+}
+
+[data-theme="dark"] .text-emerald-700,
+[data-theme="dark"] .text-green-600 {
+    color: #86efac !important;
+}
+
+[data-theme="dark"] .text-blue-700,
+[data-theme="dark"] .text-blue-600 {
+    color: #93c5fd !important;
 }
 
 [data-theme="dark"] .pill-button {
