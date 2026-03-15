@@ -121,6 +121,12 @@ select:focus-visible {
     justify-content: space-between;
     gap: 1rem;
 }
+.nav-brand-line {
+    display: inline-flex;
+    align-items: center;
+    gap: 1rem;
+    min-width: 0;
+}
 
 .nav-brand {
     font-size: 1.15rem;
@@ -129,9 +135,19 @@ select:focus-visible {
     text-transform: uppercase;
 }
 
+.brand-tight {
+    letter-spacing: 0.08em;
+    text-transform: none;
+}
+.nav-status-text {
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: #9cf5c8;
+    white-space: nowrap;
+}
+
 .nav-actions {
-    position: relative;
-    display: inline-flex;
+    padding: 0.1rem 0;
     align-items: center;
     gap: 0.75rem;
 }
