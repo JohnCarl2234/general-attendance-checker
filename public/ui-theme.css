@@ -136,7 +136,7 @@ select:focus-visible {
 }
 
 .brand-tight {
-    letter-spacing: 0.05em;
+    letter-spacing: 0.02em;
     text-transform: none;
 }
 .nav-status-text {
