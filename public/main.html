@@ -192,6 +192,23 @@
                     </button>
                 </div>
                 <p id="cloudActionMsg" class="content-note text-xs text-slate-500 mt-2"></p>
+                <div class="mt-4 border-t pt-3">
+                    <div class="flex items-start gap-3 mb-2">
+                        <span class="material-symbols-rounded text-blue-600">delete</span>
+                        <div>
+                            <p class="section-label mb-1">Remove Saved Records</p>
+                            <p class="content-note">Select multiple saved records to delete in bulk.</p>
+                        </div>
+                    </div>
+                    <div id="recordRemovalList" class="flex flex-col gap-2 max-h-48 overflow-auto bg-slate-50 rounded-md p-3 border border-slate-200"></div>
+                    <div class="flex items-center gap-2 mt-2">
+                        <button onclick="deleteSelectedRecords()" class="pill-button px-4 py-2 text-sm font-bold">
+                            <span class="material-symbols-rounded text-base">delete_sweep</span>
+                            Delete Selected
+                        </button>
+                        <span id="recordRemovalMsg" class="content-note text-xs text-slate-500"></span>
+                    </div>
+                </div>
             </div>
 
             <div class="control-surface p-4" style="background:#fff;">
@@ -359,6 +376,8 @@
             contributionByName: `${appId}_contribution_by_name_v1`,
             studentsList: `${appId}_students_list_v1`
         };
+        let cachedRecordsList = [];
+        const selectedRecordIds = new Set();
 
         const safeReadJson = (key, fallback) => {
             try {
@@ -666,6 +685,12 @@
                     .sort((a, b) => (b[1].savedAtMs || 0) - (a[1].savedAtMs || 0))
                     .slice(0, 100);
 
+                cachedRecordsList = sortedRecords.map(([recordId, data]) => ({
+                    id: recordId,
+                    label: data.savedAtLabel || recordId,
+                    savedAtMs: data.savedAtMs || 0
+                }));
+
                 sortedRecords.forEach(([recordId, data]) => {
                     const label = data.savedAtLabel || recordId;
                     options.push(`<option value="${recordId}">${escapeHtml(label)}</option>`);
@@ -675,9 +700,75 @@
                 if (!isViewingRecord) {
                     select.value = LIVE_RECORD_OPTION;
                 }
+
+                renderRecordRemovalList();
             } catch (err) {
                 console.error('Failed loading record list:', err);
                 setCloudActionMsg(`Record list failed: ${err.code || 'unknown-error'}`);
+            }
+        };
+
+        const renderRecordRemovalList = () => {
+            const container = document.getElementById('recordRemovalList');
+            if (!container) return;
+
+            if (!hasFirebaseConfig) {
+                container.innerHTML = '<p class="content-note">Enable Firebase to manage saved records.</p>';
+                return;
+            }
+
+            if (!cachedRecordsList.length) {
+                container.innerHTML = '<p class="content-note">No saved records available.</p>';
+                return;
+            }
+
+            container.innerHTML = cachedRecordsList.map(record => {
+                const checked = selectedRecordIds.has(record.id) ? 'checked' : '';
+                return `
+                    <label class="flex items-center gap-2 text-sm text-slate-700">
+                        <input type="checkbox" value="${record.id}" ${checked} onchange="toggleRecordSelection(this.value, this.checked)" />
+                        <span>${escapeHtml(record.label)}</span>
+                    </label>
+                `;
+            }).join('');
+        };
+
+        window.toggleRecordSelection = (recordId, isChecked) => {
+            if (!recordId) return;
+            if (isChecked) {
+                selectedRecordIds.add(recordId);
+            } else {
+                selectedRecordIds.delete(recordId);
+            }
+        };
+
+        window.deleteSelectedRecords = async () => {
+            const msgEl = document.getElementById('recordRemovalMsg');
+            if (!hasFirebaseConfig) {
+                if (msgEl) msgEl.innerText = 'Enable Firebase to delete records.';
+                return;
+            }
+
+            if (selectedRecordIds.size === 0) {
+                if (msgEl) msgEl.innerText = 'Select at least one record to delete.';
+                return;
+            }
+
+            try {
+                const snap = await getDoc(getRecordsDocRef());
+                const recordsMap = snap.exists() ? (snap.data().records || {}) : {};
+
+                selectedRecordIds.forEach(id => {
+                    delete recordsMap[id];
+                });
+
+                await setDoc(getRecordsDocRef(), { records: recordsMap }, { merge: false });
+                selectedRecordIds.clear();
+                if (msgEl) msgEl.innerText = 'Selected records deleted.';
+                await refreshRecordOptions();
+            } catch (err) {
+                console.error('Delete records failed:', err);
+                if (msgEl) msgEl.innerText = `Delete failed: ${err.code || 'unknown-error'}`;
             }
         };
 
