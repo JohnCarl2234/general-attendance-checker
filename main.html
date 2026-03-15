@@ -1,0 +1,548 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Persistent NSTP Attendance</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @media print {
+            @page {
+                size: A4;
+                margin: 12mm;
+            }
+
+            body {
+                background: #fff !important;
+                padding-bottom: 0 !important;
+                color: #0f172a;
+            }
+
+            nav,
+            #searchBox,
+            #categoryFilters,
+            #bulkActions,
+            #exportBtn,
+            #stats,
+            #interactiveTableWrapper {
+                display: none !important;
+            }
+
+            #printMeta {
+                display: block !important;
+            }
+
+            #printReport {
+                display: block !important;
+            }
+
+            .print-report-table {
+                width: 100%;
+                border-collapse: collapse;
+                font-size: 12px;
+            }
+
+            .print-report-table th,
+            .print-report-table td {
+                border: 1px solid #cbd5e1;
+                padding: 7px 8px;
+                vertical-align: top;
+                text-align: left;
+            }
+
+            .print-report-table th {
+                background: #f8fafc;
+                font-weight: 700;
+            }
+
+            .print-report-table tr {
+                page-break-inside: avoid;
+            }
+        }
+    </style>
+</head>
+<body class="bg-slate-50 min-h-screen font-sans pb-20">
+
+    <nav class="bg-red-900 text-white shadow-xl sticky top-0 z-50 p-4">
+        <div class="max-w-7xl mx-auto flex justify-between items-center">
+            <div>
+                <h1 class="text-xl font-bold">NSTP CLOUD TRACKER</h1>
+                <p id="statusMsg" class="text-xs text-yellow-400 font-bold">Connecting to database...</p>
+            </div>
+            <div class="text-right">
+                <p id="dateTimeDisplay" class="text-xs text-red-100 mb-1">--</p>
+                <button id="exportBtn" onclick="exportPdf()" class="bg-white text-red-900 px-4 py-1 rounded font-bold text-sm">PDF Export</button>
+            </div>
+        </div>
+    </nav>
+
+    <main class="max-w-7xl mx-auto px-4 py-6">
+        <section id="printMeta" class="hidden mb-4 border-b pb-3">
+            <h2 class="text-lg font-bold">NSTP CLOUD TRACKER</h2>
+            <p id="printDateTime" class="text-sm text-slate-700">Exported: --</p>
+            <p id="printCategory" class="text-sm text-slate-700">Category: All</p>
+        </section>
+
+        <section id="printReport" class="hidden mb-4">
+            <p id="printSummary" class="text-sm text-slate-700 mb-3">Records: 0</p>
+            <table class="print-report-table">
+                <thead>
+                    <tr>
+                        <th>#</th>
+                        <th>Name</th>
+                        <th>Assignment</th>
+                        <th>Attendance</th>
+                        <th>Contribution Status</th>
+                        <th>Contribution Details</th>
+                    </tr>
+                </thead>
+                <tbody id="printTableBody"></tbody>
+            </table>
+        </section>
+
+        <!-- Dashboard -->
+        <div id="stats" class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6 text-center">
+            <div class="bg-white p-4 rounded-xl shadow-sm border">
+                <p class="text-xs text-gray-500 font-bold uppercase">Present</p>
+                <p id="presentCount" class="text-2xl font-black text-green-600">0</p>
+            </div>
+            <div class="bg-white p-4 rounded-xl shadow-sm border">
+                <p class="text-xs text-gray-500 font-bold uppercase">Total</p>
+                <p id="totalCount" class="text-2xl font-black">72</p>
+            </div>
+            <div class="bg-white p-4 rounded-xl shadow-sm border">
+                <p class="text-xs text-gray-500 font-bold uppercase">Rate</p>
+                <p id="rateCount" class="text-2xl font-black text-blue-600">0%</p>
+            </div>
+            <div class="bg-white p-4 rounded-xl shadow-sm border">
+                <p class="text-xs text-gray-500 font-bold uppercase">Sync</p>
+                <p id="syncStatus" class="text-2xl font-black text-gray-400">●</p>
+            </div>
+        </div>
+
+        <!-- Search -->
+        <input type="text" id="searchBox" oninput="renderTable()" placeholder="Search student..." class="w-full p-4 mb-6 rounded-xl border shadow-sm outline-none focus:ring-2 focus:ring-red-500">
+
+        <!-- Assignment Filters -->
+        <div id="categoryFilters" class="flex flex-wrap gap-2 mb-6">
+            <button onclick="setCategoryFilter('All')" data-category="All" class="category-filter px-4 py-2 rounded-full border text-sm font-bold bg-red-900 text-white border-red-900">All</button>
+            <button onclick="setCategoryFilter('Core Group')" data-category="Core Group" class="category-filter px-4 py-2 rounded-full border text-sm font-bold bg-white text-slate-700 border-slate-300">Core Group</button>
+            <button onclick="setCategoryFilter('Asessment')" data-category="Asessment" class="category-filter px-4 py-2 rounded-full border text-sm font-bold bg-white text-slate-700 border-slate-300">Asessment</button>
+            <button onclick="setCategoryFilter('Team Members')" data-category="Team Members" class="category-filter px-4 py-2 rounded-full border text-sm font-bold bg-white text-slate-700 border-slate-300">Team Members</button>
+            <button onclick="setCategoryFilter('Proposal Drafters')" data-category="Proposal Drafters" class="category-filter px-4 py-2 rounded-full border text-sm font-bold bg-white text-slate-700 border-slate-300">Proposal Drafters</button>
+        </div>
+
+        <!-- Bulk Attendance Actions -->
+        <div id="bulkActions" class="bg-white rounded-xl shadow-sm border p-4 mb-6">
+            <p class="text-xs text-gray-500 font-bold uppercase mb-2">Bulk Attendance</p>
+            <div class="flex flex-col md:flex-row md:items-center gap-3">
+                <select id="bulkCategorySelect" onchange="setBulkCategory(this.value)" class="px-3 py-2 rounded-lg border bg-white text-sm font-medium md:min-w-56"></select>
+                <button onclick="bulkMarkAttendance(true)" class="px-4 py-2 rounded-lg bg-green-600 text-white text-sm font-bold">Mark Present</button>
+                <button onclick="bulkMarkAttendance(false)" class="px-4 py-2 rounded-lg bg-slate-600 text-white text-sm font-bold">Mark Absent</button>
+                <p id="bulkActionMsg" class="text-xs text-slate-500 md:ml-2"></p>
+            </div>
+        </div>
+
+        <!-- Table -->
+        <div id="interactiveTableWrapper" class="bg-white rounded-xl shadow-sm overflow-hidden border">
+            <table class="w-full text-left border-collapse">
+                <thead class="bg-gray-50">
+                    <tr>
+                        <th class="px-6 py-3 text-xs font-bold text-gray-400 uppercase">Name</th>
+                        <th class="px-6 py-3 text-xs font-bold text-gray-400 uppercase text-center">Assignment</th>
+                        <th class="px-6 py-3 text-xs font-bold text-gray-400 uppercase text-center">Status</th>
+                        <th class="px-6 py-3 text-xs font-bold text-gray-400 uppercase">Contribution Note</th>
+                    </tr>
+                </thead>
+                <tbody id="tableBody" class="divide-y">
+                    <!-- Data loads here -->
+                </tbody>
+            </table>
+        </div>
+    </main>
+
+    <!-- Firebase SDKs -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getFirestore, doc, setDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+
+        // Global Variables
+        const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : null;
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'evsu-nstp-attendance';
+        const hasFirebaseConfig = !!firebaseConfig;
+
+        // Initialize Firebase only when config is available
+        let app = null;
+        let db = null;
+        let auth = null;
+
+        if (hasFirebaseConfig) {
+            app = initializeApp(firebaseConfig);
+            db = getFirestore(app);
+            auth = getAuth(app);
+        }
+
+        // This is your list of 72 names. (The Python script can still update this!)
+        let students = [
+            { id: 1, name: "Student Name 1", category: "Team Members" },
+            { id: 2, name: "Student Name 2", category: "Team Members" }
+            // ... truncated for brevity
+        ];
+
+        let attendanceData = {}; // Stores { studentId: true/false }
+        let contributionNotes = {}; // Stores { studentId: { status: string, details: string } }
+        const noteSaveTimers = {};
+        let activeCategory = "All";
+        let bulkCategory = "All";
+        const CATEGORY_OPTIONS = ["Core Group", "Asessment", "Team Members", "Proposal Drafters"];
+        const CONTRIBUTION_PRESETS = ["", "Contributed", "Not Contributed", "Needs Follow-up"];
+
+        const normalizeCategory = (value) => {
+            const safe = (value || "").trim().toLowerCase();
+            if (safe === "core group") return "Core Group";
+            if (safe === "assessment" || safe === "asessment") return "Asessment";
+            if (safe === "team members" || safe === "team member") return "Team Members";
+            if (safe === "proposal drafters" || safe === "proposal drafter") return "Proposal Drafters";
+            return "Team Members";
+        };
+
+        const nowStamp = () => {
+            return new Date().toLocaleString('en-PH', {
+                year: 'numeric',
+                month: 'long',
+                day: '2-digit',
+                hour: '2-digit',
+                minute: '2-digit',
+                second: '2-digit'
+            });
+        };
+
+        const updateDateTimeDisplay = () => {
+            document.getElementById('dateTimeDisplay').innerText = nowStamp();
+        };
+
+        const escapeHtml = (value) => {
+            return String(value)
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#39;');
+        };
+
+        const getFilteredStudents = () => {
+            const query = document.getElementById('searchBox').value.toLowerCase();
+            return students.filter(s => {
+                const matchesSearch = s.name.toLowerCase().includes(query);
+                const matchesCategory = activeCategory === 'All' || s.category === activeCategory;
+                return matchesSearch && matchesCategory;
+            });
+        };
+
+        const getStudentsByCategory = (category) => {
+            if (category === 'All') return students;
+            return students.filter(s => s.category === category);
+        };
+
+        const renderBulkCategoryOptions = () => {
+            const select = document.getElementById('bulkCategorySelect');
+            if (!select) return;
+
+            const options = ['All', ...CATEGORY_OPTIONS];
+            select.innerHTML = options
+                .map(option => `<option value="${option}" ${bulkCategory === option ? 'selected' : ''}>${option}</option>`)
+                .join('');
+        };
+
+        const buildPrintTable = () => {
+            const filtered = getFilteredStudents();
+            const present = filtered.filter(s => !!attendanceData[s.id]).length;
+            const absent = filtered.length - present;
+            const rate = filtered.length ? ((present / filtered.length) * 100).toFixed(1) : '0.0';
+
+            document.getElementById('printSummary').innerText = `Records: ${filtered.length} | Present: ${present} | Absent: ${absent} | Rate: ${rate}%`;
+
+            const rows = filtered.map((s, index) => {
+                const noteEntry = normalizeContributionEntry(contributionNotes[s.id]);
+                const attendanceLabel = attendanceData[s.id] ? 'Present' : 'Absent';
+                const contributionStatus = noteEntry.status || '-';
+                const contributionDetails = noteEntry.details || '-';
+
+                return `
+                    <tr>
+                        <td>${index + 1}</td>
+                        <td>${escapeHtml(s.name)}</td>
+                        <td>${escapeHtml(s.category || 'Team Members')}</td>
+                        <td>${attendanceLabel}</td>
+                        <td>${escapeHtml(contributionStatus)}</td>
+                        <td>${escapeHtml(contributionDetails)}</td>
+                    </tr>
+                `;
+            }).join('');
+
+            document.getElementById('printTableBody').innerHTML = rows || `
+                <tr>
+                    <td colspan="6">No records available for current filters.</td>
+                </tr>
+            `;
+        };
+
+        window.exportPdf = () => {
+            document.getElementById('printDateTime').innerText = `Exported: ${nowStamp()}`;
+            document.getElementById('printCategory').innerText = `Category: ${activeCategory}`;
+            buildPrintTable();
+            window.print();
+        };
+
+        window.setCategoryFilter = (category) => {
+            activeCategory = category;
+            document.querySelectorAll('.category-filter').forEach(btn => {
+                const isActive = btn.dataset.category === category;
+                btn.classList.toggle('bg-red-900', isActive);
+                btn.classList.toggle('text-white', isActive);
+                btn.classList.toggle('border-red-900', isActive);
+                btn.classList.toggle('bg-white', !isActive);
+                btn.classList.toggle('text-slate-700', !isActive);
+                btn.classList.toggle('border-slate-300', !isActive);
+            });
+            renderTable();
+        };
+
+        window.setBulkCategory = (category) => {
+            bulkCategory = category;
+            const targetCount = getStudentsByCategory(bulkCategory).length;
+            document.getElementById('bulkActionMsg').innerText = `${targetCount} student(s) selected`;
+        };
+
+        window.bulkMarkAttendance = async (isPresent) => {
+            const targets = getStudentsByCategory(bulkCategory);
+            if (targets.length === 0) {
+                document.getElementById('bulkActionMsg').innerText = 'No students in selected category';
+                return;
+            }
+
+            if (bulkCategory === 'All') {
+                const actionLabel = isPresent ? 'Present' : 'Absent';
+                const confirmed = window.confirm(`Apply '${actionLabel}' to all ${targets.length} students?`);
+                if (!confirmed) {
+                    document.getElementById('bulkActionMsg').innerText = 'Bulk action cancelled';
+                    return;
+                }
+            }
+
+            const payload = {};
+            targets.forEach(student => {
+                attendanceData[student.id] = isPresent;
+                payload[student.id] = isPresent;
+            });
+
+            renderTable();
+            document.getElementById('bulkActionMsg').innerText = `${targets.length} student(s) marked ${isPresent ? 'Present' : 'Absent'}`;
+
+            if (!hasFirebaseConfig) return;
+
+            try {
+                const docRef = doc(db, 'artifacts', appId, 'public', 'data', 'daily_attendance');
+                await setDoc(docRef, payload, { merge: true });
+            } catch (err) {
+                console.error('Bulk attendance update failed:', err);
+            }
+        };
+
+        window.setStudentCategory = (id, category) => {
+            const student = students.find(s => s.id === id);
+            if (!student) return;
+            student.category = normalizeCategory(category);
+            renderTable();
+        };
+
+        const normalizeContributionEntry = (entry) => {
+            if (typeof entry === 'string') {
+                return { status: '', details: entry };
+            }
+
+            if (!entry || typeof entry !== 'object') {
+                return { status: '', details: '' };
+            }
+
+            return {
+                status: typeof entry.status === 'string' ? entry.status : '',
+                details: typeof entry.details === 'string' ? entry.details : ''
+            };
+        };
+
+        const saveContributionDebounced = (id) => {
+            if (!hasFirebaseConfig) return;
+
+            if (noteSaveTimers[id]) {
+                clearTimeout(noteSaveTimers[id]);
+            }
+
+            noteSaveTimers[id] = setTimeout(async () => {
+                try {
+                    const noteRef = doc(db, 'artifacts', appId, 'public', 'data', 'daily_contributions');
+                    await setDoc(noteRef, { [id]: normalizeContributionEntry(contributionNotes[id]) }, { merge: true });
+                } catch (err) {
+                    console.error('Failed to save contribution note:', err);
+                }
+            }, 500);
+        };
+
+        window.setContributionStatus = (id, status) => {
+            const current = normalizeContributionEntry(contributionNotes[id]);
+            contributionNotes[id] = { ...current, status };
+            saveContributionDebounced(id);
+        };
+
+        window.setContributionDetail = (id, details) => {
+            const current = normalizeContributionEntry(contributionNotes[id]);
+            contributionNotes[id] = { ...current, details };
+            saveContributionDebounced(id);
+        };
+
+        const loadStudents = async () => {
+            try {
+                const response = await fetch(`names.txt?t=${Date.now()}`);
+                if (!response.ok) throw new Error('Could not read names.txt');
+
+                const text = await response.text();
+                const names = text
+                    .split('\n')
+                    .map(line => line.trim())
+                    .filter(Boolean);
+
+                if (names.length > 0) {
+                    students = names.map((line, index) => {
+                        const [rawName, rawCategory, rawNote] = line.split('|');
+                        const name = (rawName || '').trim();
+                        const category = normalizeCategory(rawCategory);
+                        const note = (rawNote || '').trim();
+
+                        if (note) {
+                            contributionNotes[index + 1] = { status: '', details: note };
+                        }
+
+                        return { id: index + 1, name, category };
+                    }).filter(s => s.name.length > 0);
+                }
+            } catch (err) {
+                console.warn('Using fallback names list from HTML:', err);
+            }
+        };
+
+        // Rule 3: Auth Before Queries
+        const init = async () => {
+            await loadStudents();
+            renderBulkCategoryOptions();
+            setBulkCategory(bulkCategory);
+            renderTable();
+            updateDateTimeDisplay();
+            setInterval(updateDateTimeDisplay, 1000);
+
+            if (!hasFirebaseConfig) {
+                document.getElementById('statusMsg').innerText = "Local Mode (No Cloud Config)";
+                document.getElementById('statusMsg').classList.remove('text-yellow-400');
+                document.getElementById('statusMsg').classList.add('text-amber-300');
+                return;
+            }
+
+            try {
+                await signInAnonymously(auth);
+                document.getElementById('statusMsg').innerText = "Cloud Sync Active";
+                document.getElementById('syncStatus').classList.replace('text-gray-400', 'text-green-500');
+            } catch (err) {
+                document.getElementById('statusMsg').innerText = "Offline Mode";
+                document.getElementById('statusMsg').classList.add('text-red-500');
+            }
+        };
+
+        // Rule 1 & 2: Listen for changes
+        if (hasFirebaseConfig) {
+            onAuthStateChanged(auth, (user) => {
+                if (!user) return;
+
+                // Path: /artifacts/{appId}/public/data/attendance
+                const docRef = doc(db, 'artifacts', appId, 'public', 'data', 'daily_attendance');
+
+                onSnapshot(docRef, (docSnap) => {
+                    if (docSnap.exists()) {
+                        attendanceData = docSnap.data();
+                        renderTable();
+                    }
+                }, (error) => console.error("Snapshot error:", error));
+
+                const noteRef = doc(db, 'artifacts', appId, 'public', 'data', 'daily_contributions');
+                onSnapshot(noteRef, (docSnap) => {
+                    if (docSnap.exists()) {
+                        contributionNotes = docSnap.data();
+                    }
+                    renderTable();
+                }, (error) => console.error("Contribution snapshot error:", error));
+            });
+        }
+
+        window.toggleAttendance = async (id) => {
+            const currentStatus = !!attendanceData[id];
+            attendanceData[id] = !currentStatus;
+
+            renderTable();
+
+            if (!hasFirebaseConfig) return;
+            
+            // Save to Firestore
+            const docRef = doc(db, 'artifacts', appId, 'public', 'data', 'daily_attendance');
+            await setDoc(docRef, attendanceData, { merge: true });
+        };
+
+        window.renderTable = () => {
+            const filtered = getFilteredStudents();
+            const tbody = document.getElementById('tableBody');
+            
+            tbody.innerHTML = filtered.map(s => {
+                const isPresent = !!attendanceData[s.id];
+                const noteEntry = normalizeContributionEntry(contributionNotes[s.id]);
+                return `
+                    <tr>
+                        <td class="px-6 py-4 font-medium">${escapeHtml(s.name)}</td>
+                        <td class="px-6 py-4 text-center">
+                            <select onchange="setStudentCategory(${s.id}, this.value)" class="px-3 py-2 rounded-lg border bg-white text-sm font-medium">
+                                ${CATEGORY_OPTIONS.map(option => `<option value="${option}" ${s.category === option ? 'selected' : ''}>${option}</option>`).join('')}
+                            </select>
+                        </td>
+                        <td class="px-6 py-4 text-center">
+                            <button onclick="toggleAttendance(${s.id})" 
+                                class="px-6 py-2 rounded-full text-[10px] font-bold uppercase transition-all border-2 
+                                ${isPresent ? 'bg-green-100 border-green-500 text-green-700' : 'bg-slate-100 border-slate-300 text-slate-400'}">
+                                ${isPresent ? 'Present' : 'Absent'}
+                            </button>
+                        </td>
+                        <td class="px-6 py-4">
+                            <div class="flex flex-col gap-2">
+                                <select onchange="setContributionStatus(${s.id}, this.value)" class="w-full px-3 py-2 rounded-lg border bg-white text-sm font-medium">
+                                    ${CONTRIBUTION_PRESETS.map(option => `<option value="${option}" ${noteEntry.status === option ? 'selected' : ''}>${option || 'Select preset status'}</option>`).join('')}
+                                </select>
+                                <input
+                                    type="text"
+                                    value="${escapeHtml(noteEntry.details)}"
+                                    oninput="setContributionDetail(${s.id}, this.value)"
+                                    placeholder="Type detailed contribution note..."
+                                    class="w-full px-3 py-2 rounded-lg border bg-white text-sm"
+                                />
+                            </div>
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+
+            // Update stats
+            const present = Object.values(attendanceData).filter(v => v === true).length;
+            document.getElementById('presentCount').innerText = present;
+            document.getElementById('totalCount').innerText = students.length;
+            document.getElementById('rateCount').innerText = ((present / students.length) * 100).toFixed(1) + '%';
+        };
+
+        init();
+    </script>
+</body>
+</html>
