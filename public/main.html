@@ -166,6 +166,23 @@
             </div>
         </div>
 
+        <!-- Member Management -->
+        <div id="memberManagement" class="control-surface bg-white rounded-xl shadow-sm border p-4 mb-6">
+            <p class="section-label text-xs text-gray-500 font-bold uppercase mb-2">Member Management</p>
+            <div class="flex flex-col md:flex-row md:items-end gap-3">
+                <div class="flex-1 min-w-0">
+                    <label class="block text-xs font-bold text-slate-500 mb-1 uppercase">Full Name</label>
+                    <input type="text" id="newMemberName" placeholder="e.g. DELA CRUZ, JUAN" class="text-field w-full px-3 py-2 rounded-lg border bg-white text-sm">
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-slate-500 mb-1 uppercase">Role</label>
+                    <select id="newMemberCategory" class="select-field px-3 py-2 rounded-lg border bg-white text-sm font-medium min-w-48"></select>
+                </div>
+                <button onclick="addStudent()" class="filled-button tertiary px-4 py-2 rounded-lg text-sm font-bold whitespace-nowrap">+ Add Member</button>
+            </div>
+            <p id="memberActionMsg" class="content-note text-xs text-slate-500 mt-2"></p>
+        </div>
+
         <!-- Table -->
         <div id="interactiveTableWrapper" class="table-surface bg-white rounded-xl shadow-sm overflow-hidden border">
             <table class="data-table w-full text-left border-collapse">
@@ -175,6 +192,7 @@
                         <th class="px-6 py-3 text-xs font-bold text-gray-400 uppercase text-center">Assignment</th>
                         <th class="px-6 py-3 text-xs font-bold text-gray-400 uppercase text-center">Status</th>
                         <th class="px-6 py-3 text-xs font-bold text-gray-400 uppercase">Contribution Note</th>
+                        <th class="px-6 py-3 text-xs font-bold text-gray-400 uppercase text-center">Actions</th>
                     </tr>
                 </thead>
                 <tbody id="tableBody" class="divide-y">
@@ -710,6 +728,14 @@
             select.innerHTML = options
                 .map(option => `<option value="${option}" ${bulkCategory === option ? 'selected' : ''}>${option}</option>`)
                 .join('');
+
+            const newMemberCat = document.getElementById('newMemberCategory');
+            if (newMemberCat) {
+                const currentVal = newMemberCat.value || CATEGORY_OPTIONS[0];
+                newMemberCat.innerHTML = CATEGORY_OPTIONS
+                    .map(option => `<option value="${option}" ${option === currentVal ? 'selected' : ''}>${option}</option>`)
+                    .join('');
+            }
         };
 
         const buildPrintTable = () => {
@@ -855,6 +881,80 @@
             saveContributionDebounced(id);
         };
 
+        const nextStudentId = () =>
+            students.length > 0 ? Math.max(...students.map(s => s.id)) + 1 : 1;
+
+        const setMemberActionMsg = (message) => {
+            const el = document.getElementById('memberActionMsg');
+            if (el) el.innerText = message;
+        };
+
+        window.addStudent = async () => {
+            const nameInput = document.getElementById('newMemberName');
+            const categorySelect = document.getElementById('newMemberCategory');
+            const name = (nameInput?.value || '').trim();
+            const category = categorySelect?.value || 'Team Members';
+
+            if (!name) {
+                setMemberActionMsg('Please enter a name before adding.');
+                return;
+            }
+
+            if (students.find(s => s.name.toLowerCase() === name.toLowerCase())) {
+                setMemberActionMsg(`"${name}" is already in the list.`);
+                return;
+            }
+
+            const id = nextStudentId();
+            students = [...students, { id, name, category }];
+            if (nameInput) nameInput.value = '';
+
+            renderBulkCategoryOptions();
+            setBulkCategory(bulkCategory);
+            renderTable();
+            setMemberActionMsg(`"${name}" added as ${category}.`);
+            saveLocalState();
+
+            if (!hasFirebaseConfig) return;
+            await saveCompleteStateToCloud('auto');
+        };
+
+        window.removeStudent = async (id) => {
+            const student = students.find(s => s.id === id);
+            if (!student) return;
+
+            const confirmed = window.confirm(`Remove "${student.name}" from the list? This action will save to cloud.`);
+            if (!confirmed) return;
+
+            students = students.filter(s => s.id !== id);
+            delete attendanceData[id];
+            delete contributionNotes[id];
+
+            renderBulkCategoryOptions();
+            setBulkCategory(bulkCategory);
+            renderTable();
+            setMemberActionMsg(`"${student.name}" has been removed.`);
+            saveLocalState();
+
+            if (!hasFirebaseConfig) return;
+            await saveCompleteStateToCloud('auto');
+        };
+
+        window.renameStudent = async (id, newName) => {
+            const name = (newName || '').trim();
+            if (!name) return;
+
+            const student = students.find(s => s.id === id);
+            if (!student || student.name === name) return;
+
+            student.name = name;
+            setMemberActionMsg(`Renamed to "${name}".`);
+            saveLocalState();
+
+            if (!hasFirebaseConfig) return;
+            scheduleCloudStateSave();
+        };
+
         // Rule 3: Auth Before Queries
         const init = async () => {
             document.body.style.visibility = 'hidden';
@@ -949,7 +1049,14 @@
                 const noteEntry = normalizeContributionEntry(contributionNotes[s.id]);
                 return `
                     <tr>
-                        <td data-label="Name" class="px-6 py-4 font-medium">${escapeHtml(s.name)}</td>
+                        <td data-label="Name" class="px-6 py-4">
+                            <input
+                                type="text"
+                                value="${escapeHtml(s.name)}"
+                                onchange="renameStudent(${s.id}, this.value)"
+                                class="text-field w-full px-2 py-1 rounded border border-transparent bg-transparent text-sm font-medium hover:border-slate-300 focus:bg-white focus:border-red-400 focus:outline-none"
+                            />
+                        </td>
                         <td data-label="Assignment" class="px-6 py-4 text-center">
                             <select onchange="setStudentCategory(${s.id}, this.value)" class="select-field px-3 py-2 rounded-lg border bg-white text-sm font-medium">
                                 ${CATEGORY_OPTIONS.map(option => `<option value="${option}" ${s.category === option ? 'selected' : ''}>${option}</option>`).join('')}
@@ -974,6 +1081,12 @@
                                     class="text-field w-full px-3 py-2 rounded-lg border bg-white text-sm"
                                 />
                             </div>
+                        </td>
+                        <td data-label="Actions" class="px-6 py-4 text-center">
+                            <button onclick="removeStudent(${s.id})"
+                                class="pill-button px-3 py-1 rounded-full text-xs font-bold text-red-700 border border-red-200 hover:bg-red-50 transition-colors">
+                                Remove
+                            </button>
                         </td>
                     </tr>
                 `;
