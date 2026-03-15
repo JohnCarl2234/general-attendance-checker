@@ -119,22 +119,19 @@
         const getStateRef = (db) => doc(db, 'artifacts', appId, 'public_data', SHARED_DOC_KEYS.state);
         const getRecordsDocRef = (db) => doc(db, 'artifacts', appId, 'public_data', SHARED_DOC_KEYS.records);
 
-        const loadStudents = async () => {
-            const response = await fetch(`names.txt?t=${Date.now()}`);
-            const text = await response.text();
-            const names = text.split('\n').map(line => line.trim()).filter(Boolean);
-            students = names.map((line, index) => {
-                const [rawName, rawCategory] = line.split('|');
-                return {
-                    id: index + 1,
-                    name: (rawName || '').trim(),
-                    category: (rawCategory || 'Team Members').trim() || 'Team Members'
-                };
-            });
-        };
-
         const applyPayload = (payload) => {
             if (!payload || typeof payload !== 'object') return;
+
+            if (Array.isArray(payload.students) && payload.students.length > 0) {
+                students = payload.students
+                    .map((student, index) => ({
+                        id: Number.isFinite(student?.id) ? Number(student.id) : (index + 1),
+                        name: String(student?.name || '').trim(),
+                        category: String(student?.category || 'Team Members').trim() || 'Team Members'
+                    }))
+                    .filter(student => student.name.length > 0);
+            }
+
             attendanceData = payload.attendanceData || {};
             contributionNotes = payload.contributionNotes || {};
             categoryMap = payload.categories || {};
@@ -193,7 +190,6 @@
         };
 
         const init = async () => {
-            await loadStudents();
             document.getElementById('searchBox').addEventListener('input', renderTable);
 
             if (!firebaseConfig) {

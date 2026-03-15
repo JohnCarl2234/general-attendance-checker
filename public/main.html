@@ -430,7 +430,14 @@
                 categories[student.id] = student.category;
             });
 
+            const studentsSnapshot = students.map(student => ({
+                id: student.id,
+                name: student.name,
+                category: student.category
+            }));
+
             return {
+                students: studentsSnapshot,
                 attendanceData,
                 contributionNotes,
                 categories,
@@ -441,6 +448,16 @@
 
         const applyCloudPayload = (payload) => {
             if (!payload || typeof payload !== 'object') return;
+
+            if (Array.isArray(payload.students) && payload.students.length > 0) {
+                students = payload.students
+                    .map((student, index) => ({
+                        id: Number.isFinite(student?.id) ? Number(student.id) : (index + 1),
+                        name: String(student?.name || '').trim(),
+                        category: normalizeCategory(student?.category || 'Team Members')
+                    }))
+                    .filter(student => student.name.length > 0);
+            }
 
             if (payload.attendanceData && typeof payload.attendanceData === 'object') {
                 attendanceData = payload.attendanceData;
@@ -838,40 +855,9 @@
             saveContributionDebounced(id);
         };
 
-        const loadStudents = async () => {
-            try {
-                const response = await fetch(`names.txt?t=${Date.now()}`);
-                if (!response.ok) throw new Error('Could not read names.txt');
-
-                const text = await response.text();
-                const names = text
-                    .split('\n')
-                    .map(line => line.trim())
-                    .filter(Boolean);
-
-                if (names.length > 0) {
-                    students = names.map((line, index) => {
-                        const [rawName, rawCategory, rawNote] = line.split('|');
-                        const name = (rawName || '').trim();
-                        const category = normalizeCategory(rawCategory);
-                        const note = (rawNote || '').trim();
-
-                        if (note) {
-                            contributionNotes[index + 1] = { status: '', details: note };
-                        }
-
-                        return { id: index + 1, name, category };
-                    }).filter(s => s.name.length > 0);
-                }
-            } catch (err) {
-                console.warn('Using fallback names list from HTML:', err);
-            }
-        };
-
         // Rule 3: Auth Before Queries
         const init = async () => {
             document.body.style.visibility = 'hidden';
-            await loadStudents();
             applyLocalState();
             renderBulkCategoryOptions();
             setBulkCategory(bulkCategory);
