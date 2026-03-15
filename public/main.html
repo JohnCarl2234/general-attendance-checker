@@ -7,6 +7,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Roboto+Flex:opsz,wght@8..144,100..1000&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@20..48,400,0,0" />
     <link rel="stylesheet" href="./ui-theme.css">
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
@@ -70,19 +71,18 @@
 </head>
 <body class="app-shell hide-until-auth bg-slate-50 min-h-screen font-sans pb-20">
 
-    <nav class="app-topbar bg-red-900 text-white shadow-xl sticky top-0 z-50 p-4">
-        <div class="content-frame topbar-panel max-w-7xl mx-auto flex justify-between items-center">
-            <div>
-                <h1 class="app-title text-xl font-bold">NSTP CLOUD TRACKER</h1>
-                <p id="statusMsg" class="supporting-text text-xs text-yellow-400 font-bold">Connecting to database...</p>
-            </div>
-            <div class="text-right">
-                <p id="dateTimeDisplay" class="supporting-text text-xs text-red-100 mb-1">--</p>
-                <div class="flex gap-2 justify-end">
-                    <a id="viewerBtn" href="./viewer.html" class="tonal-button text-white px-4 py-1 rounded font-bold text-sm border border-red-700">Viewer</a>
-                    <button id="logoutBtn" onclick="logoutAdmin()" class="pill-button text-white px-4 py-1 rounded font-bold text-sm border border-red-800">Logout</button>
-                    <button id="exportBtn" onclick="exportPdf()" class="filled-button px-4 py-1 rounded font-bold text-sm">PDF Export</button>
+    <nav class="app-topbar sticky top-0 z-50 p-4">
+        <div class="content-frame topbar-panel max-w-7xl mx-auto">
+            <div class="flex items-center gap-3">
+                <span class="material-symbols-rounded text-3xl text-white">hub</span>
+                <div>
+                    <h1 class="app-title text-xl font-bold text-white">NSTP CLOUD TRACKER</h1>
+                    <p class="supporting-text text-xs text-white/80">Admin Control Center</p>
                 </div>
+            </div>
+            <div class="flex items-center gap-2">
+                <a id="viewerBtn" href="./viewer.html" class="tonal-button text-white border border-white/20"><span class="material-symbols-rounded text-base">visibility</span> Viewer</a>
+                <button id="logoutBtn" onclick="logoutAdmin()" class="pill-button text-white border border-white/30"><span class="material-symbols-rounded text-base">logout</span> Logout</button>
             </div>
         </div>
     </nav>
@@ -111,64 +111,138 @@
             </table>
         </section>
 
-        <!-- Dashboard -->
-        <div id="stats" class="metric-grid-compact grid grid-cols-2 md:grid-cols-4 gap-4 mb-6 text-center">
-            <div class="metric-card bg-white p-4 rounded-xl shadow-sm border">
-                <p class="text-xs text-gray-500 font-bold uppercase">Present</p>
-                <p id="presentCount" class="text-2xl font-black text-green-600">0</p>
+        <section class="oneui-hero mb-6">
+            <div class="oneui-hero-grid">
+                <div>
+                    <div class="oneui-chip mb-3">
+                        <span class="material-symbols-rounded">cloud_sync</span>
+                        <span id="statusMsg">Connecting to database...</span>
+                    </div>
+                    <h2 class="hero-title">Attendance Dashboard</h2>
+                    <p class="hero-subtitle">One UI-inspired control surface for attendance, roles, and cloud records.</p>
+                    <div class="hero-actions">
+                        <span class="oneui-chip">
+                            <span class="material-symbols-rounded">schedule</span>
+                            <span id="dateTimeDisplay">--</span>
+                        </span>
+                        <button id="exportBtn" onclick="exportPdf()" class="filled-button px-4 py-2 text-sm font-bold">
+                            <span class="material-symbols-rounded text-base">picture_as_pdf</span>
+                            PDF Export
+                        </button>
+                        <button onclick="returnToLiveMode()" class="tonal-button px-4 py-2 text-sm font-bold">
+                            <span class="material-symbols-rounded text-base">refresh</span>
+                            Return Live
+                        </button>
+                    </div>
+                </div>
+                <div class="surface-card p-4 rounded-2xl shadow-sm">
+                    <p class="section-label mb-2">Quick Sync</p>
+                    <div class="flex items-center gap-3 mb-3">
+                        <span class="material-symbols-rounded text-3xl text-blue-600">sync</span>
+                        <div>
+                            <p class="text-sm text-slate-600">Live Cloud State</p>
+                            <p id="syncStatus" class="text-2xl font-black text-gray-400 leading-none">●</p>
+                        </div>
+                    </div>
+                    <p class="content-note">Stay aligned with Firestore updates in real time.</p>
+                </div>
             </div>
-            <div class="metric-card bg-white p-4 rounded-xl shadow-sm border">
-                <p class="text-xs text-gray-500 font-bold uppercase">Total</p>
-                <p id="totalCount" class="text-2xl font-black">72</p>
+        </section>
+
+        <div id="stats" class="oneui-metrics mb-6">
+            <div class="metric-card p-4">
+                <div class="metric-icon"><span class="material-symbols-rounded">how_to_reg</span></div>
+                <p class="metric-label">Present</p>
+                <p id="presentCount" class="metric-value text-emerald-700">0</p>
             </div>
-            <div class="metric-card bg-white p-4 rounded-xl shadow-sm border">
-                <p class="text-xs text-gray-500 font-bold uppercase">Rate</p>
-                <p id="rateCount" class="text-2xl font-black text-blue-600">0%</p>
+            <div class="metric-card p-4">
+                <div class="metric-icon"><span class="material-symbols-rounded">group</span></div>
+                <p class="metric-label">Total</p>
+                <p id="totalCount" class="metric-value">72</p>
             </div>
-            <div class="metric-card bg-white p-4 rounded-xl shadow-sm border">
-                <p class="text-xs text-gray-500 font-bold uppercase">Sync</p>
-                <p id="syncStatus" class="text-2xl font-black text-gray-400">●</p>
+            <div class="metric-card p-4">
+                <div class="metric-icon"><span class="material-symbols-rounded">stacked_line_chart</span></div>
+                <p class="metric-label">Rate</p>
+                <p id="rateCount" class="metric-value text-blue-700">0%</p>
             </div>
         </div>
 
-        <!-- Search -->
-        <div id="cloudControls" class="control-surface bg-white rounded-xl shadow-sm border p-4 mb-6">
-            <p class="section-label text-xs text-gray-500 font-bold uppercase mb-2">Cloud Persistence</p>
-            <div class="flex flex-col md:flex-row md:items-center gap-3">
-                <button onclick="saveAllToCloud()" class="filled-button secondary px-4 py-2 rounded-lg text-sm font-bold">Save All To Cloud</button>
-                <button onclick="saveAsRecord()" class="filled-button px-4 py-2 rounded-lg text-sm font-bold">Save Record</button>
-                <select id="recordSelect" class="select-field px-3 py-2 rounded-lg border bg-white text-sm font-medium md:min-w-72"></select>
-                <button onclick="loadSelectedRecord()" class="tonal-button px-4 py-2 rounded-lg text-sm font-bold">Load Record</button>
-                <button onclick="returnToLiveMode()" class="filled-button tertiary px-4 py-2 rounded-lg text-sm font-bold">Return Live</button>
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6">
+            <div id="cloudControls" class="control-surface p-4">
+                <div class="flex items-start gap-3 mb-3">
+                    <span class="material-symbols-rounded text-blue-600">backup</span>
+                    <div>
+                        <p class="section-label mb-1">Cloud Persistence</p>
+                        <p class="content-note">Save or restore daily states across devices.</p>
+                    </div>
+                </div>
+                <div class="flex flex-col md:flex-row md:items-center gap-3">
+                    <button onclick="saveAllToCloud()" class="filled-button secondary px-4 py-2 rounded-lg text-sm font-bold">
+                        <span class="material-symbols-rounded text-base">cloud_upload</span>
+                        Save All To Cloud
+                    </button>
+                    <button onclick="saveAsRecord()" class="filled-button px-4 py-2 rounded-lg text-sm font-bold">
+                        <span class="material-symbols-rounded text-base">bookmark_add</span>
+                        Save Record
+                    </button>
+                    <select id="recordSelect" class="select-field px-3 py-2 rounded-lg border bg-white text-sm font-medium md:min-w-72"></select>
+                    <button onclick="loadSelectedRecord()" class="tonal-button px-4 py-2 rounded-lg text-sm font-bold">
+                        <span class="material-symbols-rounded text-base">download</span>
+                        Load Record
+                    </button>
+                </div>
+                <p id="cloudActionMsg" class="content-note text-xs text-slate-500 mt-2"></p>
             </div>
-            <p id="cloudActionMsg" class="content-note text-xs text-slate-500 mt-2"></p>
+
+            <div class="control-surface p-4">
+                <div class="flex items-start gap-3 mb-3">
+                    <span class="material-symbols-rounded text-blue-600">search</span>
+                    <div>
+                        <p class="section-label mb-1">Search & Filters</p>
+                        <p class="content-note">Locate members and focus by assignment.</p>
+                    </div>
+                </div>
+                <input type="text" id="searchBox" oninput="renderTable()" placeholder="Search student..." class="text-field w-full mb-4">
+                <div id="categoryFilters" class="flex flex-wrap gap-2">
+                    <button onclick="setCategoryFilter('All')" data-category="All" data-active="true" class="category-filter chip-filter">All</button>
+                    <button onclick="setCategoryFilter('Core Group')" data-category="Core Group" data-active="false" class="category-filter chip-filter">Core Group</button>
+                    <button onclick="setCategoryFilter('Asessment')" data-category="Asessment" data-active="false" class="category-filter chip-filter">Asessment</button>
+                    <button onclick="setCategoryFilter('Team Members')" data-category="Team Members" data-active="false" class="category-filter chip-filter">Team Members</button>
+                    <button onclick="setCategoryFilter('Proposal Drafters')" data-category="Proposal Drafters" data-active="false" class="category-filter chip-filter">Proposal Drafters</button>
+                </div>
+            </div>
         </div>
 
-        <input type="text" id="searchBox" oninput="renderTable()" placeholder="Search student..." class="text-field w-full p-4 mb-6 rounded-xl border shadow-sm outline-none focus:ring-2 focus:ring-red-500">
-
-        <!-- Assignment Filters -->
-        <div id="categoryFilters" class="flex flex-wrap gap-2 mb-6">
-            <button onclick="setCategoryFilter('All')" data-category="All" data-active="true" class="category-filter chip-filter px-4 py-2 rounded-full border text-sm font-bold bg-red-900 text-white border-red-900">All</button>
-            <button onclick="setCategoryFilter('Core Group')" data-category="Core Group" data-active="false" class="category-filter chip-filter px-4 py-2 rounded-full border text-sm font-bold bg-white text-slate-700 border-slate-300">Core Group</button>
-            <button onclick="setCategoryFilter('Asessment')" data-category="Asessment" data-active="false" class="category-filter chip-filter px-4 py-2 rounded-full border text-sm font-bold bg-white text-slate-700 border-slate-300">Asessment</button>
-            <button onclick="setCategoryFilter('Team Members')" data-category="Team Members" data-active="false" class="category-filter chip-filter px-4 py-2 rounded-full border text-sm font-bold bg-white text-slate-700 border-slate-300">Team Members</button>
-            <button onclick="setCategoryFilter('Proposal Drafters')" data-category="Proposal Drafters" data-active="false" class="category-filter chip-filter px-4 py-2 rounded-full border text-sm font-bold bg-white text-slate-700 border-slate-300">Proposal Drafters</button>
-        </div>
-
-        <!-- Bulk Attendance Actions -->
-        <div id="bulkActions" class="control-surface bg-white rounded-xl shadow-sm border p-4 mb-6">
-            <p class="section-label text-xs text-gray-500 font-bold uppercase mb-2">Bulk Attendance</p>
+        <div id="bulkActions" class="control-surface p-4 mb-6">
+            <div class="flex items-start gap-3 mb-3">
+                <span class="material-symbols-rounded text-blue-600">rule</span>
+                <div>
+                    <p class="section-label mb-1">Bulk Attendance</p>
+                    <p class="content-note">Update status for selected groups quickly.</p>
+                </div>
+            </div>
             <div class="flex flex-col md:flex-row md:items-center gap-3">
                 <select id="bulkCategorySelect" onchange="setBulkCategory(this.value)" class="select-field px-3 py-2 rounded-lg border bg-white text-sm font-medium md:min-w-56"></select>
-                <button onclick="bulkMarkAttendance(true)" class="filled-button tertiary px-4 py-2 rounded-lg text-sm font-bold">Mark Present</button>
-                <button onclick="bulkMarkAttendance(false)" class="pill-button px-4 py-2 rounded-lg text-sm font-bold">Mark Absent</button>
+                <button onclick="bulkMarkAttendance(true)" class="filled-button tertiary px-4 py-2 rounded-lg text-sm font-bold">
+                    <span class="material-symbols-rounded text-base">task_alt</span>
+                    Mark Present
+                </button>
+                <button onclick="bulkMarkAttendance(false)" class="pill-button px-4 py-2 rounded-lg text-sm font-bold">
+                    <span class="material-symbols-rounded text-base">block</span>
+                    Mark Absent
+                </button>
                 <p id="bulkActionMsg" class="content-note text-xs text-slate-500 md:ml-2"></p>
             </div>
         </div>
 
-        <!-- Member Management -->
-        <div id="memberManagement" class="control-surface bg-white rounded-xl shadow-sm border p-4 mb-6">
-            <p class="section-label text-xs text-gray-500 font-bold uppercase mb-2">Member Management</p>
+        <div id="memberManagement" class="control-surface p-4 mb-6">
+            <div class="flex items-start gap-3 mb-3">
+                <span class="material-symbols-rounded text-blue-600">group_add</span>
+                <div>
+                    <p class="section-label mb-1">Member Management</p>
+                    <p class="content-note">Add teammates, assign roles, and keep everyone organized.</p>
+                </div>
+            </div>
             <div class="flex flex-col md:flex-row md:items-end gap-3">
                 <div class="flex-1 min-w-0">
                     <label class="block text-xs font-bold text-slate-500 mb-1 uppercase">Full Name</label>
@@ -178,13 +252,22 @@
                     <label class="block text-xs font-bold text-slate-500 mb-1 uppercase">Role</label>
                     <select id="newMemberCategory" class="select-field px-3 py-2 rounded-lg border bg-white text-sm font-medium min-w-48"></select>
                 </div>
-                <button onclick="addStudent()" class="filled-button tertiary px-4 py-2 rounded-lg text-sm font-bold whitespace-nowrap">+ Add Member</button>
+                <button onclick="addStudent()" class="filled-button tertiary px-4 py-2 rounded-lg text-sm font-bold whitespace-nowrap">
+                    <span class="material-symbols-rounded text-base">add</span>
+                    Add Member
+                </button>
             </div>
             <p id="memberActionMsg" class="content-note text-xs text-slate-500 mt-2"></p>
         </div>
 
-        <!-- Table -->
         <div id="interactiveTableWrapper" class="table-surface bg-white rounded-xl shadow-sm overflow-hidden border">
+            <div class="flex items-center justify-between px-6 py-3 border-b border-slate-200/70 bg-white">
+                <div class="flex items-center gap-2">
+                    <span class="material-symbols-rounded text-blue-600">table</span>
+                    <p class="font-semibold text-slate-700">Live Attendance Table</p>
+                </div>
+                <button class="tonal-button text-sm" onclick="saveAllToCloud()"><span class="material-symbols-rounded text-base">cloud_sync</span> Sync Now</button>
+            </div>
             <table class="data-table w-full text-left border-collapse">
                 <thead class="bg-gray-50">
                     <tr>
