@@ -168,7 +168,7 @@ select:focus-visible {
 
 .oneui-metrics {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
     gap: 1rem;
 }
 
@@ -195,6 +195,24 @@ select:focus-visible {
     font-size: 2rem;
     font-weight: 900;
     color: var(--md-sys-color-on-surface);
+}
+
+.stretch-card {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+}
+
+.desktop-grid-tight {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 1.25rem;
+}
+
+@media (max-width: 1024px) {
+    .desktop-grid-tight {
+        grid-template-columns: 1fr;
+    }
 }
 
 .topbar-panel {

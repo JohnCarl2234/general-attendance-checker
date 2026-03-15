@@ -125,11 +125,11 @@
                             <span class="material-symbols-rounded">schedule</span>
                             <span id="dateTimeDisplay">--</span>
                         </span>
-                        <button id="exportBtn" onclick="exportPdf()" class="filled-button px-4 py-2 text-sm font-bold" style="box-shadow:none;">
+                        <button id="exportBtn" onclick="exportPdf()" class="filled-button px-4 py-2 text-sm font-bold" style="box-shadow:none; background:#125cb6;">
                             <span class="material-symbols-rounded text-base">picture_as_pdf</span>
                             PDF Export
                         </button>
-                        <button onclick="returnToLiveMode()" class="tonal-button px-4 py-2 text-sm font-bold">
+                        <button onclick="returnToLiveMode()" class="tonal-button px-4 py-2 text-sm font-bold" style="background:rgba(255,255,255,0.14); color:#fff; border-color:rgba(255,255,255,0.28);">
                             <span class="material-symbols-rounded text-base">refresh</span>
                             Return Live
                         </button>
@@ -167,8 +167,8 @@
             </div>
         </div>
 
-        <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6">
-            <div id="cloudControls" class="control-surface p-4" style="background:#fff;">
+        <div class="desktop-grid-tight mb-6">
+            <div id="cloudControls" class="control-surface p-4 stretch-card" style="background:#fff;">
                 <div class="flex items-start gap-3 mb-3">
                     <span class="material-symbols-rounded text-blue-600">backup</span>
                     <div>
@@ -211,7 +211,7 @@
                 </div>
             </div>
 
-            <div class="control-surface p-4" style="background:#fff;">
+            <div class="control-surface p-4 stretch-card" style="background:#fff;">
                 <div class="flex items-start gap-3 mb-3">
                     <span class="material-symbols-rounded text-blue-600">search</span>
                     <div>
@@ -230,7 +230,7 @@
             </div>
         </div>
 
-        <div id="bulkActions" class="control-surface p-4 mb-6" style="background:#fff;">
+        <div id="bulkActions" class="control-surface p-4 mb-6 stretch-card" style="background:#fff;">
             <div class="flex items-start gap-3 mb-3">
                 <span class="material-symbols-rounded text-blue-600">rule</span>
                 <div>
@@ -252,7 +252,7 @@
             </div>
         </div>
 
-        <div id="memberManagement" class="control-surface p-4 mb-6" style="background:#fff;">
+        <div id="memberManagement" class="control-surface p-4 mb-6 stretch-card" style="background:#fff;">
             <div class="flex items-start gap-3 mb-3">
                 <span class="material-symbols-rounded text-blue-600">group_add</span>
                 <div>
