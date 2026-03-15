@@ -379,6 +379,14 @@
         let cachedRecordsList = [];
         const selectedRecordIds = new Set();
 
+        const isPlaceholderList = (list) => {
+            if (!Array.isArray(list) || list.length === 0) return false;
+            const trimmed = list.filter(s => (s?.name || '').trim().length > 0);
+            if (trimmed.length === 0) return true;
+            if (trimmed.length > 2) return false;
+            return trimmed.every(s => /^student\s*name\s*\d+/i.test(String(s.name || '')));
+        };
+
         const safeReadJson = (key, fallback) => {
             try {
                 const raw = localStorage.getItem(key);
@@ -581,13 +589,17 @@
             if (!payload || typeof payload !== 'object') return;
 
             if (Array.isArray(payload.students) && payload.students.length > 0) {
-                students = payload.students
+                const incoming = payload.students
                     .map((student, index) => ({
                         id: Number.isFinite(student?.id) ? Number(student.id) : (index + 1),
                         name: String(student?.name || '').trim(),
                         category: normalizeCategory(student?.category || 'Team Members')
                     }))
                     .filter(student => student.name.length > 0);
+
+                if (!isPlaceholderList(incoming)) {
+                    students = incoming;
+                }
             }
 
             if (payload.attendanceData && typeof payload.attendanceData === 'object') {
