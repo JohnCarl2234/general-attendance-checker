@@ -166,6 +166,18 @@ select:focus-visible {
     color: #fff;
 }
 
+.hero-solid-button {
+    background: var(--md-sys-color-primary);
+    color: var(--md-sys-color-on-primary);
+    box-shadow: none;
+}
+
+.hero-ghost-button {
+    background: rgba(255, 255, 255, 0.14);
+    color: #fff;
+    border-color: rgba(255, 255, 255, 0.28);
+}
+
 .oneui-metrics {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
@@ -410,6 +422,12 @@ select:focus-visible {
     line-height: 1.45;
 }
 
+.record-list {
+    background: var(--md-sys-color-surface-container);
+    border: 1px solid var(--md-sys-color-outline-variant);
+    border-radius: var(--md-sys-radius-sm);
+}
+
 .section-label {
     color: #4b5565;
     font-size: 0.72rem;
@@ -484,6 +502,17 @@ select:focus-visible {
 [data-theme="dark"] .oneui-chip {
     background: rgba(255, 255, 255, 0.08);
     border-color: rgba(255, 255, 255, 0.18);
+}
+
+[data-theme="dark"] .hero-ghost-button {
+    background: rgba(255, 255, 255, 0.08);
+    border-color: rgba(255, 255, 255, 0.2);
+    color: #e7edf5;
+}
+
+[data-theme="dark"] .hero-solid-button {
+    background: #1d4ed8;
+    color: #e7edf5;
 }
 
 [data-theme="dark"] .surface-card,
