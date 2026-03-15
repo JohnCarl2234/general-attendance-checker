@@ -4,55 +4,59 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>NSTP Viewer Dashboard</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Roboto+Flex:opsz,wght@8..144,100..1000&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="./ui-theme.css">
     <script src="https://cdn.tailwindcss.com"></script>
 </head>
-<body class="bg-slate-50 min-h-screen font-sans pb-20">
-    <nav class="bg-slate-900 text-white shadow-xl sticky top-0 z-50 p-4">
-        <div class="max-w-7xl mx-auto flex justify-between items-center">
+<body class="viewer-shell bg-slate-50 min-h-screen font-sans pb-20">
+    <nav class="viewer-topbar bg-slate-900 text-white shadow-xl sticky top-0 z-50 p-4">
+        <div class="content-frame topbar-panel max-w-7xl mx-auto flex justify-between items-center">
             <div>
-                <h1 class="text-xl font-bold">NSTP VIEWER DASHBOARD</h1>
-                <p id="statusMsg" class="text-xs text-yellow-300 font-bold">Connecting to cloud...</p>
+                <h1 class="viewer-title text-xl font-bold">NSTP VIEWER DASHBOARD</h1>
+                <p id="statusMsg" class="supporting-text text-xs text-yellow-300 font-bold">Connecting to cloud...</p>
             </div>
             <div class="flex gap-2">
-                <a href="./login.html" class="bg-slate-700 text-white px-4 py-1 rounded font-bold text-sm">Admin Login</a>
+                <a href="./login.html" class="tonal-button text-white px-4 py-1 rounded font-bold text-sm">Admin Login</a>
             </div>
         </div>
     </nav>
 
-    <main class="max-w-7xl mx-auto px-4 py-6">
-        <div class="bg-white rounded-xl shadow-sm border p-4 mb-6">
-            <p class="text-xs text-gray-500 font-bold uppercase mb-2">Record Viewer</p>
+    <main class="content-frame max-w-7xl mx-auto px-4 py-6">
+        <div class="control-surface bg-white rounded-xl shadow-sm border p-4 mb-6">
+            <p class="section-label text-xs text-gray-500 font-bold uppercase mb-2">Record Viewer</p>
             <div class="flex flex-col md:flex-row md:items-center gap-3">
-                <select id="recordSelect" class="px-3 py-2 rounded-lg border bg-white text-sm font-medium md:min-w-72"></select>
-                <button id="loadRecordBtn" class="px-4 py-2 rounded-lg bg-slate-700 text-white text-sm font-bold">Load Record</button>
-                <button id="returnLiveBtn" class="px-4 py-2 rounded-lg bg-emerald-700 text-white text-sm font-bold">Return Live</button>
+                <select id="recordSelect" class="select-field px-3 py-2 rounded-lg border bg-white text-sm font-medium md:min-w-72"></select>
+                <button id="loadRecordBtn" class="tonal-button px-4 py-2 rounded-lg text-sm font-bold">Load Record</button>
+                <button id="returnLiveBtn" class="filled-button tertiary px-4 py-2 rounded-lg text-sm font-bold">Return Live</button>
             </div>
-            <p id="cloudActionMsg" class="text-xs text-slate-500 mt-2"></p>
+            <p id="cloudActionMsg" class="content-note text-xs text-slate-500 mt-2"></p>
         </div>
 
-        <div id="stats" class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6 text-center">
-            <div class="bg-white p-4 rounded-xl shadow-sm border">
+        <div id="stats" class="metric-grid-compact grid grid-cols-2 md:grid-cols-4 gap-4 mb-6 text-center">
+            <div class="metric-card bg-white p-4 rounded-xl shadow-sm border">
                 <p class="text-xs text-gray-500 font-bold uppercase">Present</p>
                 <p id="presentCount" class="text-2xl font-black text-green-600">0</p>
             </div>
-            <div class="bg-white p-4 rounded-xl shadow-sm border">
+            <div class="metric-card bg-white p-4 rounded-xl shadow-sm border">
                 <p class="text-xs text-gray-500 font-bold uppercase">Total</p>
                 <p id="totalCount" class="text-2xl font-black">0</p>
             </div>
-            <div class="bg-white p-4 rounded-xl shadow-sm border">
+            <div class="metric-card bg-white p-4 rounded-xl shadow-sm border">
                 <p class="text-xs text-gray-500 font-bold uppercase">Rate</p>
                 <p id="rateCount" class="text-2xl font-black text-blue-600">0%</p>
             </div>
-            <div class="bg-white p-4 rounded-xl shadow-sm border">
+            <div class="metric-card bg-white p-4 rounded-xl shadow-sm border">
                 <p class="text-xs text-gray-500 font-bold uppercase">Updated</p>
                 <p id="updatedAt" class="text-xs font-bold text-slate-600">--</p>
             </div>
         </div>
 
-        <input type="text" id="searchBox" placeholder="Search student..." class="w-full p-4 mb-6 rounded-xl border shadow-sm outline-none focus:ring-2 focus:ring-slate-500">
+        <input type="text" id="searchBox" placeholder="Search student..." class="text-field w-full p-4 mb-6 rounded-xl border shadow-sm outline-none focus:ring-2 focus:ring-slate-500">
 
-        <div class="bg-white rounded-xl shadow-sm overflow-hidden border">
-            <table class="w-full text-left border-collapse">
+        <div class="table-surface bg-white rounded-xl shadow-sm overflow-hidden border">
+            <table class="data-table w-full text-left border-collapse">
                 <thead class="bg-gray-50">
                     <tr>
                         <th class="px-6 py-3 text-xs font-bold text-gray-400 uppercase">Name</th>
@@ -155,12 +159,12 @@
 
                 return `
                     <tr>
-                        <td class="px-6 py-4 font-medium">${s.name}</td>
-                        <td class="px-6 py-4 text-center">${s.category}</td>
-                        <td class="px-6 py-4 text-center">
-                            <span class="px-4 py-1 rounded-full text-xs font-bold ${present ? 'bg-green-100 text-green-700 border border-green-400' : 'bg-slate-100 text-slate-500 border border-slate-300'}">${present ? 'Present' : 'Absent'}</span>
+                        <td data-label="Name" class="px-6 py-4 font-medium">${s.name}</td>
+                        <td data-label="Assignment" class="px-6 py-4 text-center">${s.category}</td>
+                        <td data-label="Status" class="px-6 py-4 text-center">
+                            <span class="status-chip ${present ? 'present' : 'absent'} px-4 py-1 rounded-full text-xs font-bold">${present ? 'Present' : 'Absent'}</span>
                         </td>
-                        <td class="px-6 py-4 text-sm text-slate-700">${noteText}</td>
+                        <td data-label="Contribution" class="px-6 py-4 text-sm text-slate-700">${noteText}</td>
                     </tr>
                 `;
             }).join('');

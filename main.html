@@ -4,6 +4,10 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Persistent NSTP Attendance</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Roboto+Flex:opsz,wght@8..144,100..1000&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="./ui-theme.css">
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         @media print {
@@ -25,6 +29,7 @@
             #cloudControls,
             #exportBtn,
             #viewerBtn,
+            #logoutBtn,
             #stats,
             #interactiveTableWrapper {
                 display: none !important;
@@ -63,26 +68,26 @@
         }
     </style>
 </head>
-<body class="bg-slate-50 min-h-screen font-sans pb-20">
+<body class="app-shell hide-until-auth bg-slate-50 min-h-screen font-sans pb-20">
 
-    <nav class="bg-red-900 text-white shadow-xl sticky top-0 z-50 p-4">
-        <div class="max-w-7xl mx-auto flex justify-between items-center">
+    <nav class="app-topbar bg-red-900 text-white shadow-xl sticky top-0 z-50 p-4">
+        <div class="content-frame topbar-panel max-w-7xl mx-auto flex justify-between items-center">
             <div>
-                <h1 class="text-xl font-bold">NSTP CLOUD TRACKER</h1>
-                <p id="statusMsg" class="text-xs text-yellow-400 font-bold">Connecting to database...</p>
+                <h1 class="app-title text-xl font-bold">NSTP CLOUD TRACKER</h1>
+                <p id="statusMsg" class="supporting-text text-xs text-yellow-400 font-bold">Connecting to database...</p>
             </div>
             <div class="text-right">
-                <p id="dateTimeDisplay" class="text-xs text-red-100 mb-1">--</p>
+                <p id="dateTimeDisplay" class="supporting-text text-xs text-red-100 mb-1">--</p>
                 <div class="flex gap-2 justify-end">
-                    <a id="viewerBtn" href="./viewer.html" class="bg-red-800 text-white px-4 py-1 rounded font-bold text-sm border border-red-700">Viewer</a>
-                    <button id="logoutBtn" onclick="logoutAdmin()" class="bg-red-950 text-white px-4 py-1 rounded font-bold text-sm border border-red-800">Logout</button>
-                    <button id="exportBtn" onclick="exportPdf()" class="bg-white text-red-900 px-4 py-1 rounded font-bold text-sm">PDF Export</button>
+                    <a id="viewerBtn" href="./viewer.html" class="tonal-button text-white px-4 py-1 rounded font-bold text-sm border border-red-700">Viewer</a>
+                    <button id="logoutBtn" onclick="logoutAdmin()" class="pill-button text-white px-4 py-1 rounded font-bold text-sm border border-red-800">Logout</button>
+                    <button id="exportBtn" onclick="exportPdf()" class="filled-button px-4 py-1 rounded font-bold text-sm">PDF Export</button>
                 </div>
             </div>
         </div>
     </nav>
 
-    <main class="max-w-7xl mx-auto px-4 py-6">
+    <main class="content-frame max-w-7xl mx-auto px-4 py-6">
         <section id="printMeta" class="hidden mb-4 border-b pb-3">
             <h2 class="text-lg font-bold">NSTP CLOUD TRACKER</h2>
             <p id="printDateTime" class="text-sm text-slate-700">Exported: --</p>
@@ -107,63 +112,63 @@
         </section>
 
         <!-- Dashboard -->
-        <div id="stats" class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6 text-center">
-            <div class="bg-white p-4 rounded-xl shadow-sm border">
+        <div id="stats" class="metric-grid-compact grid grid-cols-2 md:grid-cols-4 gap-4 mb-6 text-center">
+            <div class="metric-card bg-white p-4 rounded-xl shadow-sm border">
                 <p class="text-xs text-gray-500 font-bold uppercase">Present</p>
                 <p id="presentCount" class="text-2xl font-black text-green-600">0</p>
             </div>
-            <div class="bg-white p-4 rounded-xl shadow-sm border">
+            <div class="metric-card bg-white p-4 rounded-xl shadow-sm border">
                 <p class="text-xs text-gray-500 font-bold uppercase">Total</p>
                 <p id="totalCount" class="text-2xl font-black">72</p>
             </div>
-            <div class="bg-white p-4 rounded-xl shadow-sm border">
+            <div class="metric-card bg-white p-4 rounded-xl shadow-sm border">
                 <p class="text-xs text-gray-500 font-bold uppercase">Rate</p>
                 <p id="rateCount" class="text-2xl font-black text-blue-600">0%</p>
             </div>
-            <div class="bg-white p-4 rounded-xl shadow-sm border">
+            <div class="metric-card bg-white p-4 rounded-xl shadow-sm border">
                 <p class="text-xs text-gray-500 font-bold uppercase">Sync</p>
                 <p id="syncStatus" class="text-2xl font-black text-gray-400">●</p>
             </div>
         </div>
 
         <!-- Search -->
-        <div id="cloudControls" class="bg-white rounded-xl shadow-sm border p-4 mb-6">
-            <p class="text-xs text-gray-500 font-bold uppercase mb-2">Cloud Persistence</p>
+        <div id="cloudControls" class="control-surface bg-white rounded-xl shadow-sm border p-4 mb-6">
+            <p class="section-label text-xs text-gray-500 font-bold uppercase mb-2">Cloud Persistence</p>
             <div class="flex flex-col md:flex-row md:items-center gap-3">
-                <button onclick="saveAllToCloud()" class="px-4 py-2 rounded-lg bg-blue-700 text-white text-sm font-bold">Save All To Cloud</button>
-                <button onclick="saveAsRecord()" class="px-4 py-2 rounded-lg bg-indigo-700 text-white text-sm font-bold">Save Record</button>
-                <select id="recordSelect" class="px-3 py-2 rounded-lg border bg-white text-sm font-medium md:min-w-72"></select>
-                <button onclick="loadSelectedRecord()" class="px-4 py-2 rounded-lg bg-slate-700 text-white text-sm font-bold">Load Record</button>
-                <button onclick="returnToLiveMode()" class="px-4 py-2 rounded-lg bg-emerald-700 text-white text-sm font-bold">Return Live</button>
+                <button onclick="saveAllToCloud()" class="filled-button secondary px-4 py-2 rounded-lg text-sm font-bold">Save All To Cloud</button>
+                <button onclick="saveAsRecord()" class="filled-button px-4 py-2 rounded-lg text-sm font-bold">Save Record</button>
+                <select id="recordSelect" class="select-field px-3 py-2 rounded-lg border bg-white text-sm font-medium md:min-w-72"></select>
+                <button onclick="loadSelectedRecord()" class="tonal-button px-4 py-2 rounded-lg text-sm font-bold">Load Record</button>
+                <button onclick="returnToLiveMode()" class="filled-button tertiary px-4 py-2 rounded-lg text-sm font-bold">Return Live</button>
             </div>
-            <p id="cloudActionMsg" class="text-xs text-slate-500 mt-2"></p>
+            <p id="cloudActionMsg" class="content-note text-xs text-slate-500 mt-2"></p>
         </div>
 
-        <input type="text" id="searchBox" oninput="renderTable()" placeholder="Search student..." class="w-full p-4 mb-6 rounded-xl border shadow-sm outline-none focus:ring-2 focus:ring-red-500">
+        <input type="text" id="searchBox" oninput="renderTable()" placeholder="Search student..." class="text-field w-full p-4 mb-6 rounded-xl border shadow-sm outline-none focus:ring-2 focus:ring-red-500">
 
         <!-- Assignment Filters -->
         <div id="categoryFilters" class="flex flex-wrap gap-2 mb-6">
-            <button onclick="setCategoryFilter('All')" data-category="All" class="category-filter px-4 py-2 rounded-full border text-sm font-bold bg-red-900 text-white border-red-900">All</button>
-            <button onclick="setCategoryFilter('Core Group')" data-category="Core Group" class="category-filter px-4 py-2 rounded-full border text-sm font-bold bg-white text-slate-700 border-slate-300">Core Group</button>
-            <button onclick="setCategoryFilter('Asessment')" data-category="Asessment" class="category-filter px-4 py-2 rounded-full border text-sm font-bold bg-white text-slate-700 border-slate-300">Asessment</button>
-            <button onclick="setCategoryFilter('Team Members')" data-category="Team Members" class="category-filter px-4 py-2 rounded-full border text-sm font-bold bg-white text-slate-700 border-slate-300">Team Members</button>
-            <button onclick="setCategoryFilter('Proposal Drafters')" data-category="Proposal Drafters" class="category-filter px-4 py-2 rounded-full border text-sm font-bold bg-white text-slate-700 border-slate-300">Proposal Drafters</button>
+            <button onclick="setCategoryFilter('All')" data-category="All" data-active="true" class="category-filter chip-filter px-4 py-2 rounded-full border text-sm font-bold bg-red-900 text-white border-red-900">All</button>
+            <button onclick="setCategoryFilter('Core Group')" data-category="Core Group" data-active="false" class="category-filter chip-filter px-4 py-2 rounded-full border text-sm font-bold bg-white text-slate-700 border-slate-300">Core Group</button>
+            <button onclick="setCategoryFilter('Asessment')" data-category="Asessment" data-active="false" class="category-filter chip-filter px-4 py-2 rounded-full border text-sm font-bold bg-white text-slate-700 border-slate-300">Asessment</button>
+            <button onclick="setCategoryFilter('Team Members')" data-category="Team Members" data-active="false" class="category-filter chip-filter px-4 py-2 rounded-full border text-sm font-bold bg-white text-slate-700 border-slate-300">Team Members</button>
+            <button onclick="setCategoryFilter('Proposal Drafters')" data-category="Proposal Drafters" data-active="false" class="category-filter chip-filter px-4 py-2 rounded-full border text-sm font-bold bg-white text-slate-700 border-slate-300">Proposal Drafters</button>
         </div>
 
         <!-- Bulk Attendance Actions -->
-        <div id="bulkActions" class="bg-white rounded-xl shadow-sm border p-4 mb-6">
-            <p class="text-xs text-gray-500 font-bold uppercase mb-2">Bulk Attendance</p>
+        <div id="bulkActions" class="control-surface bg-white rounded-xl shadow-sm border p-4 mb-6">
+            <p class="section-label text-xs text-gray-500 font-bold uppercase mb-2">Bulk Attendance</p>
             <div class="flex flex-col md:flex-row md:items-center gap-3">
-                <select id="bulkCategorySelect" onchange="setBulkCategory(this.value)" class="px-3 py-2 rounded-lg border bg-white text-sm font-medium md:min-w-56"></select>
-                <button onclick="bulkMarkAttendance(true)" class="px-4 py-2 rounded-lg bg-green-600 text-white text-sm font-bold">Mark Present</button>
-                <button onclick="bulkMarkAttendance(false)" class="px-4 py-2 rounded-lg bg-slate-600 text-white text-sm font-bold">Mark Absent</button>
-                <p id="bulkActionMsg" class="text-xs text-slate-500 md:ml-2"></p>
+                <select id="bulkCategorySelect" onchange="setBulkCategory(this.value)" class="select-field px-3 py-2 rounded-lg border bg-white text-sm font-medium md:min-w-56"></select>
+                <button onclick="bulkMarkAttendance(true)" class="filled-button tertiary px-4 py-2 rounded-lg text-sm font-bold">Mark Present</button>
+                <button onclick="bulkMarkAttendance(false)" class="pill-button px-4 py-2 rounded-lg text-sm font-bold">Mark Absent</button>
+                <p id="bulkActionMsg" class="content-note text-xs text-slate-500 md:ml-2"></p>
             </div>
         </div>
 
         <!-- Table -->
-        <div id="interactiveTableWrapper" class="bg-white rounded-xl shadow-sm overflow-hidden border">
-            <table class="w-full text-left border-collapse">
+        <div id="interactiveTableWrapper" class="table-surface bg-white rounded-xl shadow-sm overflow-hidden border">
+            <table class="data-table w-full text-left border-collapse">
                 <thead class="bg-gray-50">
                     <tr>
                         <th class="px-6 py-3 text-xs font-bold text-gray-400 uppercase">Name</th>
@@ -725,6 +730,7 @@
             activeCategory = category;
             document.querySelectorAll('.category-filter').forEach(btn => {
                 const isActive = btn.dataset.category === category;
+                btn.dataset.active = isActive ? 'true' : 'false';
                 btn.classList.toggle('bg-red-900', isActive);
                 btn.classList.toggle('text-white', isActive);
                 btn.classList.toggle('border-red-900', isActive);
@@ -933,22 +939,21 @@
                 const noteEntry = normalizeContributionEntry(contributionNotes[s.id]);
                 return `
                     <tr>
-                        <td class="px-6 py-4 font-medium">${escapeHtml(s.name)}</td>
-                        <td class="px-6 py-4 text-center">
-                            <select onchange="setStudentCategory(${s.id}, this.value)" class="px-3 py-2 rounded-lg border bg-white text-sm font-medium">
+                        <td data-label="Name" class="px-6 py-4 font-medium">${escapeHtml(s.name)}</td>
+                        <td data-label="Assignment" class="px-6 py-4 text-center">
+                            <select onchange="setStudentCategory(${s.id}, this.value)" class="select-field px-3 py-2 rounded-lg border bg-white text-sm font-medium">
                                 ${CATEGORY_OPTIONS.map(option => `<option value="${option}" ${s.category === option ? 'selected' : ''}>${option}</option>`).join('')}
                             </select>
                         </td>
-                        <td class="px-6 py-4 text-center">
+                        <td data-label="Status" class="px-6 py-4 text-center">
                             <button onclick="toggleAttendance(${s.id})" 
-                                class="px-6 py-2 rounded-full text-[10px] font-bold uppercase transition-all border-2 
-                                ${isPresent ? 'bg-green-100 border-green-500 text-green-700' : 'bg-slate-100 border-slate-300 text-slate-400'}">
+                                class="status-chip ${isPresent ? 'present' : 'absent'} px-6 py-2 rounded-full text-[10px] font-bold uppercase transition-all border-2">
                                 ${isPresent ? 'Present' : 'Absent'}
                             </button>
                         </td>
-                        <td class="px-6 py-4">
+                        <td data-label="Contribution Note" class="px-6 py-4">
                             <div class="flex flex-col gap-2">
-                                <select onchange="setContributionStatus(${s.id}, this.value)" class="w-full px-3 py-2 rounded-lg border bg-white text-sm font-medium">
+                                <select onchange="setContributionStatus(${s.id}, this.value)" class="select-field w-full px-3 py-2 rounded-lg border bg-white text-sm font-medium">
                                     ${CONTRIBUTION_PRESETS.map(option => `<option value="${option}" ${noteEntry.status === option ? 'selected' : ''}>${option || 'Select preset status'}</option>`).join('')}
                                 </select>
                                 <input
@@ -956,7 +961,7 @@
                                     value="${escapeHtml(noteEntry.details)}"
                                     oninput="setContributionDetail(${s.id}, this.value)"
                                     placeholder="Type detailed contribution note..."
-                                    class="w-full px-3 py-2 rounded-lg border bg-white text-sm"
+                                    class="text-field w-full px-3 py-2 rounded-lg border bg-white text-sm"
                                 />
                             </div>
                         </td>
