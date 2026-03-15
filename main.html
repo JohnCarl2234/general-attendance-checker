@@ -315,6 +315,36 @@
             document.getElementById('dateTimeDisplay').innerText = nowStamp();
         };
 
+        const setSyncMessage = (message, tone = 'idle') => {
+            const statusMsg = document.getElementById('statusMsg');
+            const syncStatus = document.getElementById('syncStatus');
+
+            statusMsg.innerText = message;
+            statusMsg.classList.remove('text-yellow-400', 'text-amber-300', 'text-red-500', 'text-green-300');
+            syncStatus.classList.remove('text-gray-400', 'text-green-500', 'text-amber-400', 'text-red-500');
+
+            if (tone === 'online') {
+                statusMsg.classList.add('text-green-300');
+                syncStatus.classList.add('text-green-500');
+                return;
+            }
+
+            if (tone === 'warning') {
+                statusMsg.classList.add('text-amber-300');
+                syncStatus.classList.add('text-amber-400');
+                return;
+            }
+
+            if (tone === 'error') {
+                statusMsg.classList.add('text-red-500');
+                syncStatus.classList.add('text-red-500');
+                return;
+            }
+
+            statusMsg.classList.add('text-yellow-400');
+            syncStatus.classList.add('text-gray-400');
+        };
+
         const escapeHtml = (value) => {
             return String(value)
                 .replace(/&/g, '&amp;')
@@ -340,6 +370,54 @@
 
         const getSharedDocRef = (docKey) => {
             return doc(db, 'artifacts', appId, 'public', 'data', docKey);
+        };
+
+        const startCloudSync = () => {
+            const attendanceRef = getSharedDocRef(SHARED_DOC_KEYS.attendance);
+            const noteRef = getSharedDocRef(SHARED_DOC_KEYS.contributions);
+            const categoryRef = getSharedDocRef(SHARED_DOC_KEYS.categories);
+
+            onSnapshot(attendanceRef, (docSnap) => {
+                if (docSnap.exists()) {
+                    attendanceData = docSnap.data();
+                }
+                saveLocalState();
+                renderTable();
+                setSyncMessage('Cloud Sync Active', 'online');
+            }, (error) => {
+                console.error('Snapshot error:', error);
+                setSyncMessage(`Cloud read failed: ${error.code || 'unknown-error'}`, 'error');
+            });
+
+            onSnapshot(noteRef, (docSnap) => {
+                if (docSnap.exists()) {
+                    contributionNotes = docSnap.data();
+                }
+                saveLocalState();
+                renderTable();
+            }, (error) => {
+                console.error('Contribution snapshot error:', error);
+                setSyncMessage(`Cloud note sync failed: ${error.code || 'unknown-error'}`, 'error');
+            });
+
+            onSnapshot(categoryRef, (docSnap) => {
+                if (docSnap.exists()) {
+                    const cloudCategories = docSnap.data();
+                    students = students.map(student => {
+                        const cloudCategory = cloudCategories[student.id];
+                        return {
+                            ...student,
+                            category: cloudCategory ? normalizeCategory(cloudCategory) : student.category
+                        };
+                    });
+                }
+
+                saveLocalState();
+                renderTable();
+            }, (error) => {
+                console.error('Category snapshot error:', error);
+                setSyncMessage(`Cloud category sync failed: ${error.code || 'unknown-error'}`, 'error');
+            });
         };
 
         const renderBulkCategoryOptions = () => {
@@ -445,6 +523,7 @@
                 await setDoc(docRef, payload, { merge: true });
             } catch (err) {
                 console.error('Bulk attendance update failed:', err);
+                setSyncMessage(`Bulk write failed: ${err.code || 'unknown-error'}`, 'error');
             }
         };
 
@@ -462,6 +541,7 @@
                 await setDoc(categoryRef, { [id]: student.category }, { merge: true });
             } catch (err) {
                 console.error('Failed to save category update:', err);
+                setSyncMessage(`Category save failed: ${err.code || 'unknown-error'}`, 'error');
             }
         };
 
@@ -493,6 +573,7 @@
                     await setDoc(noteRef, { [id]: normalizeContributionEntry(contributionNotes[id]) }, { merge: true });
                 } catch (err) {
                     console.error('Failed to save contribution note:', err);
+                    setSyncMessage(`Note save failed: ${err.code || 'unknown-error'}`, 'error');
                 }
             }, 500);
         };
@@ -552,65 +633,20 @@
             setInterval(updateDateTimeDisplay, 1000);
 
             if (!hasFirebaseConfig) {
-                document.getElementById('statusMsg').innerText = "Local Mode (No Cloud Config)";
-                document.getElementById('statusMsg').classList.remove('text-yellow-400');
-                document.getElementById('statusMsg').classList.add('text-amber-300');
+                setSyncMessage('Local Mode (No Cloud Config)', 'warning');
                 return;
             }
 
+            startCloudSync();
+
             try {
                 await signInAnonymously(auth);
-                document.getElementById('statusMsg').innerText = "Cloud Sync Active";
-                document.getElementById('syncStatus').classList.replace('text-gray-400', 'text-green-500');
+                setSyncMessage('Cloud Sync Active', 'online');
             } catch (err) {
-                document.getElementById('statusMsg').innerText = "Offline Mode";
-                document.getElementById('statusMsg').classList.add('text-red-500');
+                console.warn('Anonymous auth failed:', err);
+                setSyncMessage('Cloud connected, anonymous auth disabled', 'warning');
             }
         };
-
-        // Rule 1 & 2: Listen for changes
-        if (hasFirebaseConfig) {
-            onAuthStateChanged(auth, (user) => {
-                if (!user) return;
-
-                // Path: /artifacts/{appId}/public/data/attendance
-                const docRef = getSharedDocRef(SHARED_DOC_KEYS.attendance);
-
-                onSnapshot(docRef, (docSnap) => {
-                    if (docSnap.exists()) {
-                        attendanceData = docSnap.data();
-                        saveLocalState();
-                        renderTable();
-                    }
-                }, (error) => console.error("Snapshot error:", error));
-
-                const noteRef = getSharedDocRef(SHARED_DOC_KEYS.contributions);
-                onSnapshot(noteRef, (docSnap) => {
-                    if (docSnap.exists()) {
-                        contributionNotes = docSnap.data();
-                    }
-                    saveLocalState();
-                    renderTable();
-                }, (error) => console.error("Contribution snapshot error:", error));
-
-                const categoryRef = getSharedDocRef(SHARED_DOC_KEYS.categories);
-                onSnapshot(categoryRef, (docSnap) => {
-                    if (docSnap.exists()) {
-                        const cloudCategories = docSnap.data();
-                        students = students.map(student => {
-                            const cloudCategory = cloudCategories[student.id];
-                            return {
-                                ...student,
-                                category: cloudCategory ? normalizeCategory(cloudCategory) : student.category
-                            };
-                        });
-                    }
-
-                    saveLocalState();
-                    renderTable();
-                }, (error) => console.error("Category snapshot error:", error));
-            });
-        }
 
         window.toggleAttendance = async (id) => {
             const currentStatus = !!attendanceData[id];
@@ -623,7 +659,12 @@
             
             // Save to Firestore
             const docRef = getSharedDocRef(SHARED_DOC_KEYS.attendance);
-            await setDoc(docRef, attendanceData, { merge: true });
+            try {
+                await setDoc(docRef, attendanceData, { merge: true });
+            } catch (err) {
+                console.error('Attendance save failed:', err);
+                setSyncMessage(`Attendance save failed: ${err.code || 'unknown-error'}`, 'error');
+            }
         };
 
         window.renderTable = () => {
