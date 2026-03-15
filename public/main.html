@@ -599,6 +599,8 @@
 
                 if (!isPlaceholderList(incoming)) {
                     students = incoming;
+                } else if (isPlaceholderList(students)) {
+                    students = [];
                 }
             }
 
@@ -1168,6 +1170,9 @@
         const init = async () => {
             document.body.style.visibility = 'hidden';
             applyLocalState();
+            if (isPlaceholderList(students)) {
+                students = [];
+            }
             renderBulkCategoryOptions();
             setBulkCategory(bulkCategory);
             renderTable();
