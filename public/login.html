@@ -55,10 +55,11 @@
     <script src="./firebase-config.js"></script>
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { initializeFirestore, doc, getDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
         import { getAuth, setPersistence, browserLocalPersistence, signInWithEmailAndPassword, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
 
         const firebaseConfig = typeof window !== 'undefined' ? window.FIREBASE_CONFIG : null;
-        const adminEmails = Array.isArray(window.ADMIN_EMAILS) ? window.ADMIN_EMAILS.map(email => String(email).toLowerCase()) : [];
+        const appId = typeof window !== 'undefined' && window.APP_ID ? window.APP_ID : 'evsu-nstp-attendance';
         const statusEl = document.getElementById('loginStatus');
         const form = document.getElementById('loginForm');
 
@@ -72,19 +73,42 @@
             setStatus('Missing Firebase configuration. Update firebase-config.js first.', true);
         } else {
             const app = initializeApp(firebaseConfig);
+            const db = initializeFirestore(app, {
+                experimentalAutoDetectLongPolling: true,
+                useFetchStreams: false
+            });
             const auth = getAuth(app);
+            const adminGateRef = doc(db, 'artifacts', appId, 'private_data', 'admin_gate');
+
+            const verifyAdminAccess = async () => {
+                try {
+                    // If this read is denied, Firestore rules rejected admin access.
+                    await getDoc(adminGateRef);
+                    return true;
+                } catch (error) {
+                    if (error?.code === 'permission-denied') {
+                        return false;
+                    }
+                    throw error;
+                }
+            };
 
             onAuthStateChanged(auth, async (user) => {
                 if (!user) return;
 
-                const email = String(user.email || '').toLowerCase();
-                if (!adminEmails.includes(email)) {
-                    await signOut(auth);
-                    setStatus('This account is not in the admin allowlist.', true);
-                    return;
-                }
+                try {
+                    const isAdmin = await verifyAdminAccess();
+                    if (!isAdmin) {
+                        await signOut(auth);
+                        setStatus('This account is not authorized for admin access.', true);
+                        return;
+                    }
 
-                window.location.replace('./main.html');
+                    window.location.replace('./main.html');
+                } catch (error) {
+                    console.error(error);
+                    setStatus(`Authorization check failed: ${error.code || 'unknown-error'}`, true);
+                }
             });
 
             form.addEventListener('submit', async (event) => {
@@ -92,11 +116,6 @@
 
                 const email = document.getElementById('email').value.trim();
                 const password = document.getElementById('password').value;
-
-                if (!adminEmails.includes(email.toLowerCase())) {
-                    setStatus('This email is not authorized for admin access.', true);
-                    return;
-                }
 
                 try {
                     setStatus('Signing in...');

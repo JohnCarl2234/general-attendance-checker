@@ -10,8 +10,3 @@ window.FIREBASE_CONFIG = {
 
 // Keep this constant across all users so shared documents are consistent.
 window.APP_ID = "evsu-nstp-attendance";
-
-// Only these email addresses can access the admin dashboard and write to Firestore.
-window.ADMIN_EMAILS = [
-    "acostajohncarl33@gmail.com"
-];

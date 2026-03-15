@@ -12,5 +12,10 @@ service cloud.firestore {
       allow read: if true;
       allow write: if isAdmin();
     }
+
+    // Admin gate and private docs are only accessible to admins.
+    match /artifacts/{appId}/private_data/{docId} {
+      allow read, write: if isAdmin();
+    }
   }
 }

@@ -62,5 +62,5 @@ def inject_students(html_file, names_file):
     print(f"Successfully injected {len(student_list)} students into {html_file}!")
 
 if __name__ == "__main__":
-    # Ensure these filenames match exactly what you have on your computer
-    inject_students("main.html", "names.txt")
+    # The site assets now live in public/ to keep non-web files isolated.
+    inject_students("public/main.html", "public/names.txt")

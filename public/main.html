@@ -214,9 +214,6 @@
             typeof __app_id !== 'undefined'
                 ? __app_id
                 : (typeof window !== 'undefined' && window.APP_ID ? window.APP_ID : 'evsu-nstp-attendance');
-        const ADMIN_EMAILS = Array.isArray(window.ADMIN_EMAILS)
-            ? window.ADMIN_EMAILS.map(email => String(email).toLowerCase())
-            : [];
         const hasFirebaseConfig = !!firebaseConfig;
         const SHARED_DOC_KEYS = {
             state: 'daily_state',
@@ -410,6 +407,23 @@
             return getSharedDocRef(SHARED_DOC_KEYS.records);
         };
 
+        const getAdminGateDocRef = () => {
+            return doc(db, 'artifacts', appId, 'private_data', 'admin_gate');
+        };
+
+        const verifyAdminAccess = async () => {
+            try {
+                // Admins can read private_data; non-admin users are denied by rules.
+                await getDoc(getAdminGateDocRef());
+                return true;
+            } catch (err) {
+                if (err?.code === 'permission-denied') {
+                    return false;
+                }
+                throw err;
+            }
+        };
+
         const buildCloudPayload = () => {
             const categories = {};
             students.forEach(student => {
@@ -454,11 +468,6 @@
         const redirectToLogin = (reason = '') => {
             const target = reason ? `./login.html?reason=${encodeURIComponent(reason)}` : './login.html';
             window.location.replace(target);
-        };
-
-        const isAuthorizedAdmin = (user) => {
-            const email = String(user?.email || '').toLowerCase();
-            return !!email && ADMIN_EMAILS.includes(email);
         };
 
         window.logoutAdmin = async () => {
@@ -889,23 +898,38 @@
                 return;
             }
 
-            if (!isAuthorizedAdmin(initialUser)) {
+            try {
+                const isAdmin = await verifyAdminAccess();
+                if (!isAdmin) {
+                    await signOut(auth);
+                    redirectToLogin('unauthorized');
+                    return;
+                }
+            } catch (error) {
+                console.error('Admin authorization check failed:', error);
                 await signOut(auth);
-                redirectToLogin('unauthorized');
+                redirectToLogin('auth-check-failed');
                 return;
             }
 
             currentAdminUser = initialUser;
             document.body.style.visibility = 'visible';
 
-            onAuthStateChanged(auth, (user) => {
+            onAuthStateChanged(auth, async (user) => {
                 if (!user) {
                     redirectToLogin('session-expired');
                     return;
                 }
 
-                if (!isAuthorizedAdmin(user)) {
-                    signOut(auth).finally(() => redirectToLogin('unauthorized'));
+                try {
+                    const isAdmin = await verifyAdminAccess();
+                    if (!isAdmin) {
+                        signOut(auth).finally(() => redirectToLogin('unauthorized'));
+                        return;
+                    }
+                } catch (error) {
+                    console.error('Admin authorization re-check failed:', error);
+                    signOut(auth).finally(() => redirectToLogin('auth-check-failed'));
                     return;
                 }
 
