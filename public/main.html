@@ -1176,16 +1176,27 @@
             if (input) input.click();
         };
 
+        const splitCsvLine = (line) => {
+            const matches = line.match(/"(?:[^"]|"")*"|[^,]+/g) || [];
+            return matches.map(field => {
+                const trimmed = field.trim();
+                if (trimmed.startsWith('"') && trimmed.endsWith('"')) {
+                    return trimmed.slice(1, -1).replace(/""/g, '"').trim();
+                }
+                return trimmed;
+            });
+        };
+
         const parseCsvLines = (text) => {
             return text
                 .split(/\r?\n/)
                 .map(line => line.trim())
                 .filter(line => line.length > 0)
                 .map(line => {
-                    const parts = line.split(',').map(p => p.trim()).filter(Boolean);
+                    const parts = splitCsvLine(line).filter(Boolean);
                     if (parts.length < 2) return null;
                     const categoryRaw = parts.pop();
-                    const name = parts.join(', ');
+                    const name = parts.join(', ').trim();
                     const category = normalizeCategory(categoryRaw || 'Team Members');
                     if (!name) return null;
                     return { name, category };
