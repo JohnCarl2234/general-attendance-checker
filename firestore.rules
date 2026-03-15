@@ -1,8 +1,16 @@
 rules_version = '2';
 service cloud.firestore {
+  function isAdmin() {
+    return request.auth != null &&
+      request.auth.token.email in [
+        'acostajohncarl33@gmail.com'
+      ];
+  }
+
   match /databases/{database}/documents {
-    match /{document=**} {
-      allow read, write: if true;
+    match /artifacts/{appId}/public_data/{docId} {
+      allow read: if true;
+      allow write: if isAdmin();
     }
   }
 }

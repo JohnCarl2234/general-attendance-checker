@@ -75,6 +75,7 @@
                 <p id="dateTimeDisplay" class="text-xs text-red-100 mb-1">--</p>
                 <div class="flex gap-2 justify-end">
                     <a id="viewerBtn" href="./viewer.html" class="bg-red-800 text-white px-4 py-1 rounded font-bold text-sm border border-red-700">Viewer</a>
+                    <button id="logoutBtn" onclick="logoutAdmin()" class="bg-red-950 text-white px-4 py-1 rounded font-bold text-sm border border-red-800">Logout</button>
                     <button id="exportBtn" onclick="exportPdf()" class="bg-white text-red-900 px-4 py-1 rounded font-bold text-sm">PDF Export</button>
                 </div>
             </div>
@@ -184,7 +185,7 @@
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
         import { initializeFirestore, doc, setDoc, onSnapshot, getDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
-        import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
 
         // Global Variables
         const injectedFirebaseConfig =
@@ -208,6 +209,9 @@
             typeof __app_id !== 'undefined'
                 ? __app_id
                 : (typeof window !== 'undefined' && window.APP_ID ? window.APP_ID : 'evsu-nstp-attendance');
+        const ADMIN_EMAILS = Array.isArray(window.ADMIN_EMAILS)
+            ? window.ADMIN_EMAILS.map(email => String(email).toLowerCase())
+            : [];
         const hasFirebaseConfig = !!firebaseConfig;
         const SHARED_DOC_KEYS = {
             state: 'daily_state',
@@ -242,6 +246,7 @@
         let activeCategory = "All";
         let bulkCategory = "All";
         let isViewingRecord = false;
+        let currentAdminUser = null;
         const LIVE_RECORD_OPTION = '__live__';
         const CATEGORY_OPTIONS = ["Core Group", "Asessment", "Team Members", "Proposal Drafters"];
         const CONTRIBUTION_PRESETS = ["", "Contributed", "Not Contributed", "Needs Follow-up"];
@@ -439,6 +444,29 @@
         const setCloudActionMsg = (message) => {
             const el = document.getElementById('cloudActionMsg');
             if (el) el.innerText = message;
+        };
+
+        const redirectToLogin = (reason = '') => {
+            const target = reason ? `./login.html?reason=${encodeURIComponent(reason)}` : './login.html';
+            window.location.replace(target);
+        };
+
+        const isAuthorizedAdmin = (user) => {
+            const email = String(user?.email || '').toLowerCase();
+            return !!email && ADMIN_EMAILS.includes(email);
+        };
+
+        window.logoutAdmin = async () => {
+            if (!auth) {
+                redirectToLogin('signed-out');
+                return;
+            }
+
+            try {
+                await signOut(auth);
+            } finally {
+                redirectToLogin('signed-out');
+            }
         };
 
         const saveCompleteStateToCloud = async (source = 'manual') => {
@@ -827,6 +855,7 @@
 
         // Rule 3: Auth Before Queries
         const init = async () => {
+            document.body.style.visibility = 'hidden';
             await loadStudents();
             applyLocalState();
             renderBulkCategoryOptions();
@@ -838,20 +867,49 @@
             if (!hasFirebaseConfig) {
                 setSyncMessage('Local Mode (No Cloud Config)', 'warning');
                 setCloudActionMsg('Cloud disabled. Configure Firebase to enable shared persistence.');
+                document.body.style.visibility = 'visible';
                 return;
             }
+
+            const initialUser = await new Promise((resolve) => {
+                const unsubscribe = onAuthStateChanged(auth, (user) => {
+                    unsubscribe();
+                    resolve(user);
+                });
+            });
+
+            if (!initialUser) {
+                redirectToLogin('login-required');
+                return;
+            }
+
+            if (!isAuthorizedAdmin(initialUser)) {
+                await signOut(auth);
+                redirectToLogin('unauthorized');
+                return;
+            }
+
+            currentAdminUser = initialUser;
+            document.body.style.visibility = 'visible';
+
+            onAuthStateChanged(auth, (user) => {
+                if (!user) {
+                    redirectToLogin('session-expired');
+                    return;
+                }
+
+                if (!isAuthorizedAdmin(user)) {
+                    signOut(auth).finally(() => redirectToLogin('unauthorized'));
+                    return;
+                }
+
+                currentAdminUser = user;
+            });
 
             startCloudSync();
             await refreshRecordOptions();
             await saveCompleteStateToCloud('auto');
-
-            try {
-                await signInAnonymously(auth);
-                setSyncMessage('Cloud Sync Active', 'online');
-            } catch (err) {
-                console.warn('Anonymous auth failed:', err);
-                setSyncMessage('Cloud connected, anonymous auth disabled', 'warning');
-            }
+            setSyncMessage('Cloud Sync Active', 'online');
         };
 
         window.toggleAttendance = async (id) => {
